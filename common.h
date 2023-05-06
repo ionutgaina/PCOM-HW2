@@ -40,13 +40,13 @@ struct subscribe_response_packet
   //     ı̂nmultit modulul pentru a obtine numărul original (ı̂n modul)
   // 3 - Sir de maxim 1500 de caractere, terminat cu \0 sau delimitat de finalul datagramei pentru lungimi mai mici
   uint8_t data_type;
-  char content[MSG_MAXSIZE + 1];
+  char content[MSG_MAXSIZE];
 };
 
 struct subscribe_packet
 {
   char command[11];
-  char topic[TOPIC_MAXSIZE + 1];
+  char topic[TOPIC_MAXSIZE];
   uint8_t sf;
 };
 

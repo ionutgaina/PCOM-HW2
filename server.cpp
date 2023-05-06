@@ -179,7 +179,7 @@ int main(int argc, char *argv[])
       // Eveniment pe socketul UDP
       if (poll_fds[1].revents & POLLIN)
       {
-        std::cout << "Cerere de citire pe socketul UDP\n";
+        // std::cout << "Cerere de citire pe socketul UDP\n";
       }
 
       if (i > 1 && (poll_fds[i].revents & POLLIN))
@@ -258,7 +258,7 @@ int main(int argc, char *argv[])
           else
           {
             // afisam mesajul primit
-            printf("[client %d] %s\n", poll_fds[i].fd, recv_packet.message);
+            // printf("[client %d] %s\n", poll_fds[i].fd, recv_packet.message);
           }
         }
 

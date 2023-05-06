@@ -141,8 +141,6 @@ void run_client(int sockfd, char *client_id)
         memcpy(sent_packet.message, &subscription_packet, sizeof(subscription_packet));
 
         sent_packet.message_type = 1;
-
-        std::cout << sent_packet.message << "\n";
       }
       else if (strncmp(command, "exit", 4) != 0)
       {
@@ -207,8 +205,6 @@ int main(int argc, char *argv[])
   int rc = sscanf(argv[3], "%hu", &port);
   DIE(rc != 1, "Given port is invalid");
 
-  std::cout << "PORT: " << port << "\n";
-
   // Completăm in serv_addr adresa serverului, familia de adrese si portul
   // pentru conectare
 
@@ -220,8 +216,6 @@ int main(int argc, char *argv[])
   serv_addr.sin_port = htons(port);
   rc = inet_pton(AF_INET, argv[2], &serv_addr.sin_addr.s_addr);
   DIE(rc <= 0, "IP Server is invalid (inet_pton)");
-
-  std::cout << "IP: " << argv[2] << "\n";
 
   // Obtinem un socket TCP pentru conectarea la server
   sockfd = socket(AF_INET, SOCK_STREAM, 0);
