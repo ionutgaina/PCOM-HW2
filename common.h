@@ -20,6 +20,7 @@ struct packet {
 
 struct topic {
   char name[TOPIC_MAXSIZE + 1];
+  int sf;
   int clients[MAX_CLIENTS];
   int clients_count;
 };

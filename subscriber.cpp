@@ -32,28 +32,40 @@ void run_client(int sockfd, char *client_id)
   struct packet recv_packet;
 
   // Send the client ID to the server
-  sent_packet.len = strlen(client_id) + 1;
+  sent_packet.len = strlen(client_id);
   strcpy(sent_packet.message, client_id);
 
   // Use send_all function to send the pachet to the server.
-  send_all(sockfd, &sent_packet, sizeof(sent_packet));
+  rc = send_all(sockfd, &sent_packet, sizeof(sent_packet));
 
   // Receive a message and show it's content
   rc = recv_all(sockfd, &recv_packet, sizeof(recv_packet));
   DIE(rc <= 0, "recv_all");
 
-  printf("%s\n", recv_packet.message);
+  if (strncmp(recv_packet.message, "already connected", 17) == 0)
+  {
+    return;
+  }
+
   while (fgets(buf, sizeof(buf), stdin) && !isspace(buf[0]))
   {
-    sent_packet.len = strlen(buf) + 1;
+    sent_packet.len = strlen(buf);
     strcpy(sent_packet.message, buf);
 
     // Use send_all function to send the pachet to the server.
-    send_all(sockfd, &sent_packet, sizeof(sent_packet));
+    rc = send_all(sockfd, &sent_packet, sizeof(sent_packet));
 
     // Receive a message and show it's content
     rc = recv_all(sockfd, &recv_packet, sizeof(recv_packet));
     if (rc <= 0)
+    {
+      break;
+    }
+
+    /*
+          DEJA CONECTAT
+    */
+    if (strncmp(recv_packet.message, "exit", 4) == 0)
     {
       break;
     }

@@ -16,6 +16,10 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <iostream>
+#include <netinet/tcp.h>
+
+#include <unordered_map>
+#include <algorithm>
 
 #include "common.h"
 #include "helpers.h"
@@ -56,6 +60,7 @@ int main(int argc, char *argv[])
   DIE(argc != 2, "Usage: ./server <port>");
 
   int rc, ret, i;
+  std::unordered_map<int, std::string> socket_to_id;
 
   // Parsam port-ul ca un numar
   uint16_t port;
@@ -75,7 +80,7 @@ int main(int argc, char *argv[])
   int enable = 1;
 
   rc = setsockopt(listen_tcp, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int));
-  DIE(rc < 0, "setsockopt(SO_REUSEADDR) failed");
+  DIE(rc < 0, "setsockopt(TCP_NODELAY) failed");
 
   /*
           ADDRESE PENTRU SOCKETI
@@ -158,12 +163,10 @@ int main(int argc, char *argv[])
         std::cin.getline(buf, sizeof(buf));
         if (strcmp(buf, "exit") == 0)
         {
-          std::cout << "Serverul se inchide\n";
-
           // Inchidem socketii
-          for (int nr_socket = 1; nr_socket < num_clients; nr_socket++)
+          for (int num_socket = 1; num_socket < num_clients; num_socket++)
           {
-            close(poll_fds[nr_socket].fd);
+            close(poll_fds[num_socket].fd);
           }
           return 0;
         }
@@ -179,15 +182,18 @@ int main(int argc, char *argv[])
         std::cout << "Cerere de citire pe socketul UDP\n";
       }
 
-      // Eveniment pe socketii TCP
-      char buf[MSG_MAXSIZE];
-      memset(buf, 0, MSG_MAXSIZE);
-
-      struct packet recv_packet;
-
       if (i > 1 && (poll_fds[i].revents & POLLIN))
       {
-        std::cout << "Cerere de citire pe socketul TCP " << i << "\n";
+        // std::cout << "Cerere de citire pe socketul TCP " << i << "\n";
+
+        // Eveniment pe socketii TCP
+        char buf[MSG_MAXSIZE + 1];
+        memset(buf, 0, MSG_MAXSIZE + 1);
+
+        struct packet recv_packet;
+
+        int current_socket = poll_fds[i].fd;
+
         if (poll_fds[i].fd == listen_tcp)
         {
 
@@ -198,6 +204,25 @@ int main(int argc, char *argv[])
           int newsockfd =
               accept(listen_tcp, (struct sockaddr *)&cli_addr, &cli_len);
           DIE(newsockfd < 0, "accept");
+          current_socket = newsockfd;
+
+          rc = recv_all(newsockfd, &recv_packet, sizeof(recv_packet));
+          DIE(rc < 0, "recv_all");
+
+          auto it = std::find_if(socket_to_id.begin(), socket_to_id.end(), [&](const std::pair<int, std::string> &p)
+                                 { return p.second == recv_packet.message; });
+          if (it != socket_to_id.end())
+          {
+            // daca id-ul este deja folosit
+            std::cout << "Client " << recv_packet.message << " already connected.\n";
+
+            strcpy(recv_packet.message, "already connected");
+            recv_packet.len = strlen(recv_packet.message);
+            ret = send_all(current_socket, &recv_packet, sizeof(recv_packet));
+            DIE(ret < 0, "send_all");
+            close(newsockfd);
+            continue;
+          }
 
           // se adauga noul socket intors de accept() la multimea descriptorilor
           // de citire
@@ -205,22 +230,25 @@ int main(int argc, char *argv[])
           poll_fds[num_clients].events = POLLIN;
           num_clients++;
 
-          std::cout << "Noua conexiune de la " << inet_ntoa(cli_addr.sin_addr) << ", port "
-                    << ntohs(cli_addr.sin_port) << " , socket client " << newsockfd << "\n";
+          std::cout << "New client " << recv_packet.message << " connected from " << inet_ntoa(cli_addr.sin_addr) << ":" << ntohs(cli_addr.sin_port) << ".\n";
 
-          rc = recv_all(poll_fds[i].fd, &recv_packet, sizeof(recv_packet));
-          DIE(rc < 0, "recv_all");
+          // se adauga in map-ul de id-uri si socketi
+          socket_to_id.insert({newsockfd, recv_packet.message});
         }
         else
         {
 
           rc = recv_all(poll_fds[i].fd, &recv_packet, sizeof(recv_packet));
           DIE(rc < 0, "recv_all");
-
-          if (strcmp(buf, "exit") == 0)
+          current_socket = poll_fds[i].fd;
+          /*
+                  INCHID CONEXIUNE (EXIT)
+          */
+          if (strncmp(recv_packet.message, "exit", 4) == 0)
           {
             // conexiunea s-a inchis
-            printf("Socket %d s-a inchis\n", poll_fds[i].fd);
+            int ID_CLIENT = socket_to_id.find(current_socket)->first;
+            std::cout << "Client " << ID_CLIENT << " disconnected.\n";
 
             // se scoate socketul inchis de la polling
             close(poll_fds[i].fd);
@@ -231,12 +259,13 @@ int main(int argc, char *argv[])
           {
             // afisam mesajul primit
             printf("[client %d] %s\n", poll_fds[i].fd, recv_packet.message);
-
-            // raspundem clientului cu acelasi mesaj
-            ret = send_all(poll_fds[i].fd, &recv_packet, sizeof(recv_packet));
-            DIE(ret < 0, "send_all");
           }
         }
+
+        // raspundem clientului cu acelasi mesaj
+        // (nu conteaza daca se aboneaza un client sau ne scrie ceva)
+        ret = send_all(current_socket, &recv_packet, sizeof(recv_packet));
+        DIE(ret < 0, "send_all");
       }
     }
   }
