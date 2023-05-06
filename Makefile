@@ -1,30 +1,31 @@
-CFLAGS = -Wall -g -Werror -Wno-error=unused-variable
+CFLAGS = -Wall -g -Werror -Wno-error=unused-variable g++
 
-# Portul pe care asculta serverul
-PORT = 12345
+COMMON_FILES = common.cpp
 
-# Adresa IP a serverului
-IP_SERVER = 127.0.0.1
+all: server subscriber
 
-all: server client
+# Compileaza server.cpp si adauga obiectul creat pentru common.cpp
+server: server.cpp common.cpp
+	g++ -c common.cpp
+	g++ -o server server.cpp common.cpp -Wall
 
-common.o: common.c
-
-# Compileaza server.c
-server: server.cpp common.o
-
-# Compileaza client.c
-client: client.cpp common.o
+# Compileaza client.cpp si adauga obiectul creat pentru common.cpp
+subscriber: subscriber.cpp $(COMMON_FILES:.cpp=.o)
+	g++ -o subscriber subscriber.cpp $(COMMON_FILES:.cpp=.o)
 
 .PHONY: clean run_server run_client
 
 # Ruleaza serverul
 run_server:
-	./server ${IP_SERVER} ${PORT}
+	./server
 
 # Ruleaza clientul 	
 run_client:
-	./client ${IP_SERVER} ${PORT}
+	./subscriber
 
 clean:
-	rm -rf server client *.o *.dSYM
+	rm -rf server subscriber common *.o *.dSYM
+
+# Regula implicita pentru compilarea fisierelor sursa .cpp in obiecte .o
+%.o: %.cpp
+	$(CFLAGS) -c $<

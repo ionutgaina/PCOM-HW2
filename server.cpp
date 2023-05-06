@@ -169,6 +169,15 @@ void run_chat_multi_server(int listenfd)
             printf("S-a primit de la clientul de pe socketul %d mesajul: %s\n",
                    poll_fds[i].fd, received_packet.message);
             /* TODO 2.1: Trimite mesajul catre toti ceilalti clienti */
+            for (int j = 1; j < num_clients; j++)
+            {
+              if (poll_fds[j].fd != poll_fds[i].fd)
+              {
+                rc = send_all(poll_fds[j].fd, &received_packet,
+                              sizeof(received_packet));
+                DIE(rc < 0, "send");
+              }
+            }
           }
         }
       }
@@ -178,16 +187,18 @@ void run_chat_multi_server(int listenfd)
 
 int main(int argc, char *argv[])
 {
-  if (argc != 3)
+  if (argc != 2)
   {
-    printf("\n Usage: %s <ip> <port>\n", argv[0]);
+    printf("\n Usage: %s <port>\n", argv[0]);
     return 1;
   }
 
   // Parsam port-ul ca un numar
   uint16_t port;
-  int rc = sscanf(argv[2], "%hu", &port);
+  int rc = sscanf(argv[1], "%hu", &port);
   DIE(rc != 1, "Given port is invalid");
+
+  printf("Port: %hu\n", port);
 
   // Obtinem un socket TCP pentru receptionarea conexiunilor
   int listenfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -207,14 +218,15 @@ int main(int argc, char *argv[])
   memset(&serv_addr, 0, socket_len);
   serv_addr.sin_family = AF_INET;
   serv_addr.sin_port = htons(port);
-  rc = inet_pton(AF_INET, argv[1], &serv_addr.sin_addr.s_addr);
-  DIE(rc <= 0, "inet_pton");
+  
+  printf("Adresa serverului: %s\n", inet_ntoa(serv_addr.sin_addr));
 
   // Asociem adresa serverului cu socketul creat folosind bind
   rc = bind(listenfd, (const struct sockaddr *)&serv_addr, sizeof(serv_addr));
   DIE(rc < 0, "bind");
+         
 
-  run_chat_server(listenfd);
+  // run_chat_server(listenfd);
   // run_chat_multi_server(listenfd);
 
   // Inchidem listenfd
