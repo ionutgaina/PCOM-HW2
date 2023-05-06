@@ -308,6 +308,10 @@ int main(int argc, char *argv[])
           }
           return 0;
         }
+        else
+        {
+          DIE(1, "Comanda invalida");
+        }
       }
 
       // Eveniment pe socketul UDP
@@ -316,9 +320,26 @@ int main(int argc, char *argv[])
         std::cout << "Cerere de citire pe socketul UDP\n";
       }
 
+      // Eveniment pe socketii TCP
       if (i > 1 && poll_fds[i].revents & POLLIN)
       {
-        std::cout << "Cerere de citire pe socketul TCP\n";
+        // a venit o cerere de conexiune pe socketul inactiv (cel cu listen),
+        // pe care serverul o accepta
+        struct sockaddr_in cli_addr;
+        socklen_t cli_len = sizeof(cli_addr);
+        int newsockfd =
+            accept(poll_fds[i].fd, (struct sockaddr *)&cli_addr, &cli_len);
+        DIE(newsockfd < 0, "accept");
+
+        // se adauga noul socket intors de accept() la multimea descriptorilor
+        // de citire
+        poll_fds[num_clients].fd = newsockfd;
+        poll_fds[num_clients].events = POLLIN;
+        num_clients++;
+
+        printf("Noua conexiune de la %s, port %d, socket client %d\n",
+               inet_ntoa(cli_addr.sin_addr), ntohs(cli_addr.sin_port),
+               newsockfd);
       }
     }
   }

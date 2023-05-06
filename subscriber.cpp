@@ -16,6 +16,7 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <iostream>
 
 #include "common.h"
 #include "helpers.h"
@@ -54,31 +55,43 @@ int main(int argc, char *argv[])
 {
   int sockfd = -1;
 
-  if (argc != 3)
+  if (argc != 4)
   {
-    printf("\n Usage: %s <ip> <port>\n", argv[0]);
+    printf("\n Usage: %s <ID_CLIENT> <IP_SERVER> <PORT_SERVER>\n", argv[0]);
     return 1;
   }
 
+  // Parsam ID-ul clientului
+  char *client_id = argv[1];
+  DIE(strlen(client_id) > 10 && strlen(client_id) == 0, "Client ID is invalid");
+
+  std::cout << "Client ID: " << client_id << "\n";
+
   // Parsam port-ul ca un numar
   uint16_t port;
-  int rc = sscanf(argv[2], "%hu", &port);
+  int rc = sscanf(argv[3], "%hu", &port);
   DIE(rc != 1, "Given port is invalid");
 
-  // Obtinem un socket TCP pentru conectarea la server
-  sockfd = socket(AF_INET, SOCK_STREAM, 0);
-  DIE(sockfd < 0, "socket");
+  std::cout << "PORT: " << port << "\n";
+
 
   // Completăm in serv_addr adresa serverului, familia de adrese si portul
   // pentru conectare
+
   struct sockaddr_in serv_addr;
-  socklen_t socket_len = sizeof(struct sockaddr_in);
+  socklen_t socket_len = sizeof(serv_addr);
 
   memset(&serv_addr, 0, socket_len);
   serv_addr.sin_family = AF_INET;
   serv_addr.sin_port = htons(port);
-  rc = inet_pton(AF_INET, argv[1], &serv_addr.sin_addr.s_addr);
-  DIE(rc <= 0, "inet_pton");
+  rc = inet_pton(AF_INET, argv[2], &serv_addr.sin_addr.s_addr);
+  DIE(rc <= 0, "IP Server is invalid (inet_pton)");
+
+  std::cout << "IP: " << argv[2] << "\n";
+
+  // Obtinem un socket TCP pentru conectarea la server
+  sockfd = socket(AF_INET, SOCK_STREAM, 0);
+  DIE(sockfd < 0, "socket");
 
   // Ne conectăm la server
   rc = connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr));

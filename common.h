@@ -11,6 +11,7 @@ int recv_all(int sockfd, void *buff, size_t len);
 #define MSG_MAXSIZE 1500
 #define TOPIC_MAXSIZE 50
 #define MAX_CLIENTS 10
+#define ID_MAXSIZE 10
 
 struct chat_packet {
   uint16_t len;
