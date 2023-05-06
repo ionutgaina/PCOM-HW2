@@ -25,8 +25,8 @@ void run_client(int sockfd, char *client_id)
 {
 
   int rc;
-  char buf[MSG_MAXSIZE + 1];
-  memset(buf, 0, MSG_MAXSIZE + 1);
+  char buf[BUFSIZ];
+  memset(buf, 0, BUFSIZ);
 
   struct packet sent_packet;
   struct packet recv_packet;
@@ -41,7 +41,9 @@ void run_client(int sockfd, char *client_id)
   // Receive a message and show it's content
   rc = recv_all(sockfd, &recv_packet, sizeof(recv_packet));
   DIE(rc <= 0, "recv_all");
-
+  /*
+        DEJA CONECTAT
+  */
   if (strncmp(recv_packet.message, "already connected", 17) == 0)
   {
     return;
@@ -51,6 +53,103 @@ void run_client(int sockfd, char *client_id)
   {
     sent_packet.len = strlen(buf);
     strcpy(sent_packet.message, buf);
+
+    /*
+             UNSUBSCRIBE
+       */
+
+    // copy buf
+    char buf_copy[BUFSIZ];
+    strcpy(buf_copy, buf);
+
+    char *command = strtok(buf_copy, " ");
+    if (strncmp(command, "unsubscribe", 11) == 0)
+    {
+      struct subscribe_packet unsubscription_packet;
+      char *topic = strtok(NULL, " ");
+      if (topic == NULL)
+      {
+        std::cerr << "Topic nu este definit\n";
+        continue;
+      }
+
+      if (strlen(topic) > 50)
+      {
+        std::cerr << "Topicul este prea lung\n";
+        continue;
+      }
+
+      if (strtok(NULL, " ") != NULL)
+      {
+        std::cerr << "Prea multe argumente -> unsubscribe <TOPIC>\n";
+        continue;
+      }
+
+      strcpy(unsubscription_packet.topic, topic);
+      strcpy(unsubscription_packet.command, "unsubscribe");
+
+      sent_packet.len = sizeof(unsubscription_packet);
+      memcpy(sent_packet.message, &unsubscription_packet, sizeof(unsubscription_packet));
+
+      sent_packet.message_type = 1;
+    }
+    else
+      /*
+        SUBSCRIBE
+      */
+      if (strncmp(command, "subscribe", 9) == 0)
+      {
+        struct subscribe_packet subscription_packet;
+        char *topic = strtok(NULL, " ");
+        if (topic == NULL)
+        {
+          std::cerr << "Topic nu este definit\n";
+          continue;
+        }
+
+        if (strlen(topic) > 50)
+        {
+          std::cerr << "Topicul este prea lung\n";
+          continue;
+        }
+        char *sf_string = strtok(NULL, " ");
+
+        if (sf_string == NULL)
+        {
+          std::cerr << "SF nu este definit\n";
+          continue;
+        }
+
+        int sf = atoi(sf_string);
+        if (sf != 0 && sf != 1)
+        {
+          std::cerr << "SF nu este 0 sau 1\n";
+          continue;
+        }
+
+        if (strtok(NULL, " ") != NULL)
+        {
+          std::cerr << "Prea multe argumente -> subscribe <TOPIC> <SF>\n";
+          continue;
+        }
+
+        strcpy(subscription_packet.topic, topic);
+        strcpy(subscription_packet.command, "subscribe");
+        subscription_packet.sf = sf;
+
+        sent_packet.len = sizeof(subscription_packet);
+        memcpy(sent_packet.message, &subscription_packet, sizeof(subscription_packet));
+
+        sent_packet.message_type = 1;
+
+        std::cout << sent_packet.message << "\n";
+      }
+      else if (strncmp(command, "exit", 4) != 0)
+      {
+        std::cerr << "Clientul poate trimite doar mesaje de tipul 'exit', 'subscribe <TOPIC> <SF>', 'unsubscribe <TOPIC>'\n";
+        std::cout << recv_packet.message << "\n";
+        continue;
+      }
 
     // Use send_all function to send the pachet to the server.
     rc = send_all(sockfd, &sent_packet, sizeof(sent_packet));
@@ -63,14 +162,31 @@ void run_client(int sockfd, char *client_id)
     }
 
     /*
-          DEJA CONECTAT
+          EXIT RESPONSE
     */
     if (strncmp(recv_packet.message, "exit", 4) == 0)
     {
       break;
     }
+    else
 
-    printf("%s\n", recv_packet.message);
+      /*
+            UNSUBSCRIBE RESPONSE
+      */
+      if (strncmp(recv_packet.message, "unsubscribe", 11) == 0)
+      {
+        std::cout << "Unsubscribed from topic.\n";
+        continue;
+      }
+      else
+        /*
+              SUBSCRIBE RESPONSE
+        */
+        if (strncmp(recv_packet.message, "subscribe", 9) == 0)
+        {
+          std::cout << "Subscribed to topic.\n";
+          continue;
+        }
   }
 }
 

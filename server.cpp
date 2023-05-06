@@ -159,7 +159,7 @@ int main(int argc, char *argv[])
       // Eveniment pe stdin
       if (poll_fds[0].revents & POLLIN)
       {
-        char buf[MSG_MAXSIZE + 1];
+        char buf[BUFSIZ];
         std::cin.getline(buf, sizeof(buf));
         if (strcmp(buf, "exit") == 0)
         {
@@ -187,8 +187,8 @@ int main(int argc, char *argv[])
         // std::cout << "Cerere de citire pe socketul TCP " << i << "\n";
 
         // Eveniment pe socketii TCP
-        char buf[MSG_MAXSIZE + 1];
-        memset(buf, 0, MSG_MAXSIZE + 1);
+        char buf[BUFSIZ];
+        memset(buf, 0, BUFSIZ);
 
         struct packet recv_packet;
 
