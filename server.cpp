@@ -27,6 +27,7 @@ int receive_and_send(int connfd1, int connfd2, size_t len)
 {
   int bytes_received;
   char buffer[len];
+  int rc;
 
   // Primim exact len octeti de la connfd1
   bytes_received = recv_all(connfd1, buffer, len);
@@ -38,7 +39,7 @@ int receive_and_send(int connfd1, int connfd2, size_t len)
   DIE(bytes_received < 0, "recv");
 
   // Trimitem mesajul catre connfd2
-  int rc = send_all(connfd2, buffer, len);
+  rc = send_all(connfd2, buffer, len);
   if (rc <= 0)
   {
     perror("send_all");
@@ -48,160 +49,18 @@ int receive_and_send(int connfd1, int connfd2, size_t len)
   return bytes_received;
 }
 
-void run_chat_server(int listenfd)
-{
-  struct sockaddr_in client_addr1;
-  struct sockaddr_in client_addr2;
-  socklen_t clen1 = sizeof(client_addr1);
-  socklen_t clen2 = sizeof(client_addr2);
-
-  int connfd1 = -1;
-  int connfd2 = -1;
-  int rc;
-
-  // Setam socket-ul listenfd pentru ascultare
-  rc = listen(listenfd, 2);
-  DIE(rc < 0, "listen");
-
-  // Acceptam doua conexiuni
-  printf("Astept conectarea primului client...\n");
-  connfd1 = accept(listenfd, (struct sockaddr *)&client_addr1, &clen1);
-  DIE(connfd1 < 0, "accept");
-
-  printf("Astept connectarea clientului 2...\n");
-
-  connfd2 = accept(listenfd, (struct sockaddr *)&client_addr2, &clen2);
-  DIE(connfd2 < 0, "accept");
-
-  while (1)
-  {
-    // Primim de la primul client, trimitem catre al 2lea
-    printf("Primesc de la 1 si trimit catre 2...\n");
-    int rc = receive_and_send(connfd1, connfd2, sizeof(struct chat_packet));
-    if (rc <= 0)
-    {
-      break;
-    }
-
-    rc = receive_and_send(connfd2, connfd1, sizeof(struct chat_packet));
-    if (rc <= 0)
-    {
-      break;
-    }
-  }
-
-  // Inchidem conexiunile si socketii creati
-  close(connfd1);
-  close(connfd2);
-}
-
-void run_chat_multi_server(int listenfd)
-{
-
-  struct pollfd poll_fds[MAX_CONNECTIONS];
-  int num_clients = 1;
-  int rc;
-
-  struct chat_packet received_packet;
-
-  // Setam socket-ul listenfd pentru ascultare
-  rc = listen(listenfd, MAX_CONNECTIONS);
-  DIE(rc < 0, "listen");
-
-  // se adauga noul file descriptor (socketul pe care se asculta conexiuni) in
-  // multimea read_fds
-  poll_fds[0].fd = listenfd;
-  poll_fds[0].events = POLLIN;
-
-  while (1)
-  {
-
-    rc = poll(poll_fds, num_clients, -1);
-    DIE(rc < 0, "poll");
-
-    for (int i = 0; i < num_clients; i++)
-    {
-      if (poll_fds[i].revents & POLLIN)
-      {
-        if (poll_fds[i].fd == listenfd)
-        {
-          // a venit o cerere de conexiune pe socketul inactiv (cel cu listen),
-          // pe care serverul o accepta
-          struct sockaddr_in cli_addr;
-          socklen_t cli_len = sizeof(cli_addr);
-          int newsockfd =
-              accept(listenfd, (struct sockaddr *)&cli_addr, &cli_len);
-          DIE(newsockfd < 0, "accept");
-
-          // se adauga noul socket intors de accept() la multimea descriptorilor
-          // de citire
-          poll_fds[num_clients].fd = newsockfd;
-          poll_fds[num_clients].events = POLLIN;
-          num_clients++;
-
-          printf("Noua conexiune de la %s, port %d, socket client %d\n",
-                 inet_ntoa(cli_addr.sin_addr), ntohs(cli_addr.sin_port),
-                 newsockfd);
-        }
-        else
-        {
-          // s-au primit date pe unul din socketii de client,
-          // asa ca serverul trebuie sa le receptioneze
-          int rc = recv_all(poll_fds[i].fd, &received_packet,
-                            sizeof(received_packet));
-          DIE(rc < 0, "recv");
-
-          if (rc == 0)
-          {
-            // conexiunea s-a inchis
-            printf("Socket-ul client %d a inchis conexiunea\n", i);
-            close(poll_fds[i].fd);
-
-            // se scoate din multimea de citire socketul inchis
-            for (int j = i; j < num_clients - 1; j++)
-            {
-              poll_fds[j] = poll_fds[j + 1];
-            }
-
-            num_clients--;
-          }
-          else
-          {
-            printf("S-a primit de la clientul de pe socketul %d mesajul: %s\n",
-                   poll_fds[i].fd, received_packet.message);
-            /* TODO 2.1: Trimite mesajul catre toti ceilalti clienti */
-            for (int j = 1; j < num_clients; j++)
-            {
-              if (poll_fds[j].fd != poll_fds[i].fd)
-              {
-                rc = send_all(poll_fds[j].fd, &received_packet,
-                              sizeof(received_packet));
-                DIE(rc < 0, "send");
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-}
-
 int main(int argc, char *argv[])
 {
   setvbuf(stdout, NULL, _IONBF, BUFSIZ);
 
-  if (argc != 2)
-  {
-    std::cout << "\n Usage: " << argv[0] << " <port>\n";
-    return 1;
-  }
+  DIE(argc != 2, "Usage: ./server <port>");
+
+  int rc, ret, i;
 
   // Parsam port-ul ca un numar
   uint16_t port;
-  int rc = sscanf(argv[1], "%hu", &port);
+  rc = sscanf(argv[1], "%hu", &port);
   DIE(rc != 1, "Given port is invalid");
-
-  std::cout << "Port: " << port << "\n";
 
   /*
           TCP
@@ -214,8 +73,9 @@ int main(int argc, char *argv[])
   // Facem adresa socket-ului reutilizabila, ca sa nu primim eroare in caz ca
   // rulam de 2 ori rapid
   int enable = 1;
-  if (setsockopt(listen_tcp, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) < 0)
-    perror("setsockopt(SO_REUSEADDR) failed");
+
+  rc = setsockopt(listen_tcp, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int));
+  DIE(rc < 0, "setsockopt(SO_REUSEADDR) failed");
 
   /*
           ADDRESE PENTRU SOCKETI
@@ -248,9 +108,8 @@ int main(int argc, char *argv[])
   int listen_udp = socket(PF_INET, SOCK_DGRAM, 0);
   DIE(listen_udp < 0, "udp socket");
 
-  enable = 1;
-  if (setsockopt(listen_udp, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) < 0)
-    perror("setsockopt(SO_REUSEADDR) failed");
+  rc = setsockopt(listen_udp, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int));
+  DIE(rc < 0, "setsockopt(SO_REUSEADDR) failed");
 
   // Setam familia de adrese pentru socket-ul UDP
   struct sockaddr_in udp_addr;
@@ -285,13 +144,12 @@ int main(int argc, char *argv[])
           ASCULTARE
   */
 
-  int ret;
   while (1)
   {
     ret = poll(poll_fds, num_clients, -1);
     DIE(ret < 0, "eroare la poll");
 
-    for (int i = 0; i < num_clients; i++)
+    for (i = 0; i < num_clients; i++)
     {
       // Eveniment pe stdin
       if (poll_fds[0].revents & POLLIN)
@@ -322,6 +180,10 @@ int main(int argc, char *argv[])
       }
 
       // Eveniment pe socketii TCP
+      char buf[MSG_MAXSIZE];
+      memset(buf, 0, MSG_MAXSIZE);
+
+      struct packet recv_packet;
 
       if (i > 1 && (poll_fds[i].revents & POLLIN))
       {
@@ -345,16 +207,14 @@ int main(int argc, char *argv[])
 
           std::cout << "Noua conexiune de la " << inet_ntoa(cli_addr.sin_addr) << ", port "
                     << ntohs(cli_addr.sin_port) << " , socket client " << newsockfd << "\n";
+
+          rc = recv_all(poll_fds[i].fd, &recv_packet, sizeof(recv_packet));
+          DIE(rc < 0, "recv_all");
         }
         else
         {
-          char buf[MSG_MAXSIZE];
-          memset(buf, 0, MSG_MAXSIZE);
 
-          struct chat_packet recv_packet;
-
-          // send_all(sockfd, &sent_packet, sizeof(sent_packet));
-          int rc = recv_all(poll_fds[i].fd, &recv_packet, sizeof(recv_packet));
+          rc = recv_all(poll_fds[i].fd, &recv_packet, sizeof(recv_packet));
           DIE(rc < 0, "recv_all");
 
           if (strcmp(buf, "exit") == 0)

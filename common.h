@@ -13,7 +13,7 @@ int recv_all(int sockfd, void *buff, size_t len);
 #define MAX_CLIENTS 10
 #define ID_MAXSIZE 10
 
-struct chat_packet {
+struct packet {
   uint16_t len;
   char message[MSG_MAXSIZE + 1];
 };

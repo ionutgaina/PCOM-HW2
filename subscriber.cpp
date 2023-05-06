@@ -23,11 +23,13 @@
 
 void run_client(int sockfd, char *client_id)
 {
+
+  int rc;
   char buf[MSG_MAXSIZE + 1];
   memset(buf, 0, MSG_MAXSIZE + 1);
 
-  struct chat_packet sent_packet;
-  struct chat_packet recv_packet;
+  struct packet sent_packet;
+  struct packet recv_packet;
 
   // Send the client ID to the server
   sent_packet.len = strlen(client_id) + 1;
@@ -37,7 +39,7 @@ void run_client(int sockfd, char *client_id)
   send_all(sockfd, &sent_packet, sizeof(sent_packet));
 
   // Receive a message and show it's content
-  int rc = recv_all(sockfd, &recv_packet, sizeof(recv_packet));
+  rc = recv_all(sockfd, &recv_packet, sizeof(recv_packet));
   DIE(rc <= 0, "recv_all");
 
   printf("%s\n", recv_packet.message);
@@ -50,7 +52,7 @@ void run_client(int sockfd, char *client_id)
     send_all(sockfd, &sent_packet, sizeof(sent_packet));
 
     // Receive a message and show it's content
-    int rc = recv_all(sockfd, &recv_packet, sizeof(recv_packet));
+    rc = recv_all(sockfd, &recv_packet, sizeof(recv_packet));
     if (rc <= 0)
     {
       break;
@@ -66,17 +68,11 @@ int main(int argc, char *argv[])
 
   int sockfd = -1;
 
-  if (argc != 4)
-  {
-    printf("\n Usage: %s <ID_CLIENT> <IP_SERVER> <PORT_SERVER>\n", argv[0]);
-    return 1;
-  }
+  DIE(argc != 4, "Usage: ./subscriber <ID_Client> <IP_Server> <Port_Server>");
 
   // Parsam ID-ul clientului
   char *client_id = argv[1];
   DIE(strlen(client_id) > 10 && strlen(client_id) == 0, "Client ID is invalid");
-
-  std::cout << "Client ID: " << client_id << "\n";
 
   // Parsam port-ul ca un numar
   uint16_t port;
