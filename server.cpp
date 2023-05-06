@@ -15,6 +15,7 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <iostream>
 
 #include "common.h"
 #include "helpers.h"
@@ -189,7 +190,7 @@ int main(int argc, char *argv[])
 {
   if (argc != 2)
   {
-    printf("\n Usage: %s <port>\n", argv[0]);
+    std::cout << "\n Usage: " << argv[0] << " <port>\n";
     return 1;
   }
 
@@ -198,39 +199,129 @@ int main(int argc, char *argv[])
   int rc = sscanf(argv[1], "%hu", &port);
   DIE(rc != 1, "Given port is invalid");
 
-  printf("Port: %hu\n", port);
+  std::cout << "Port: " << port << "\n";
+
+  /*
+          TCP
+  */
 
   // Obtinem un socket TCP pentru receptionarea conexiunilor
-  int listenfd = socket(AF_INET, SOCK_STREAM, 0);
-  DIE(listenfd < 0, "socket");
-
-  // Completăm in serv_addr adresa serverului, familia de adrese si portul
-  // pentru conectare
-  struct sockaddr_in serv_addr;
-  socklen_t socket_len = sizeof(struct sockaddr_in);
+  int listen_tcp = socket(AF_INET, SOCK_STREAM, 0);
+  DIE(listen_tcp < 0, "tcp socket");
 
   // Facem adresa socket-ului reutilizabila, ca sa nu primim eroare in caz ca
   // rulam de 2 ori rapid
   int enable = 1;
-  if (setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) < 0)
+  if (setsockopt(listen_tcp, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) < 0)
     perror("setsockopt(SO_REUSEADDR) failed");
 
-  memset(&serv_addr, 0, socket_len);
-  serv_addr.sin_family = AF_INET;
-  serv_addr.sin_port = htons(port);
-  
-  printf("Adresa serverului: %s\n", inet_ntoa(serv_addr.sin_addr));
+  /*
+          ADDRESE PENTRU SOCKETI
+  */
+  // Completăm in tcp_addr adresa serverului, familia de adrese si portul
+  // pentru conectare
+  struct sockaddr_in tcp_addr;
+  socklen_t socket_len = sizeof(struct sockaddr_in);
+
+  // Setam familia de adrese pentru socket-ul TCP
+  memset(&tcp_addr, 0, socket_len);
+  tcp_addr.sin_family = AF_INET;
+  tcp_addr.sin_addr.s_addr = INADDR_ANY;
+  tcp_addr.sin_port = htons(port);
 
   // Asociem adresa serverului cu socketul creat folosind bind
-  rc = bind(listenfd, (const struct sockaddr *)&serv_addr, sizeof(serv_addr));
+  rc = bind(listen_tcp, (const struct sockaddr *)&tcp_addr, sizeof(tcp_addr));
   DIE(rc < 0, "bind");
-         
 
-  // run_chat_server(listenfd);
-  // run_chat_multi_server(listenfd);
+  // Ascultam pentru conexiuni pe socketul TCP
+  // -2 pentru ca o conexiune va fi UDP și una pentru STDIN
+  rc = listen(listen_tcp, MAX_CONNECTIONS - 2);
+  DIE(rc < 0, "listen");
 
-  // Inchidem listenfd
-  close(listenfd);
+  /*
+        UDP
+  */
+
+  // Obtinem un socket UDP pentru receptionarea mesajelor
+  int listen_udp = socket(PF_INET, SOCK_DGRAM, 0);
+  DIE(listen_udp < 0, "udp socket");
+
+  enable = 1;
+  if (setsockopt(listen_udp, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) < 0)
+    perror("setsockopt(SO_REUSEADDR) failed");
+
+  // Setam familia de adrese pentru socket-ul UDP
+  struct sockaddr_in udp_addr;
+  memset(&udp_addr, 0, socket_len);
+  udp_addr.sin_family = AF_INET;
+  udp_addr.sin_addr.s_addr = INADDR_ANY;
+  udp_addr.sin_port = htons(port);
+
+  rc = bind(listen_udp, (const struct sockaddr *)&udp_addr, sizeof(udp_addr));
+  DIE(rc < 0, "bind");
+
+  /*
+          POLL
+  */
+
+  // Initializam multimea de descriptori de citire
+  struct pollfd poll_fds[MAX_CONNECTIONS];
+
+  // Adaugam socketii TCP, UDP si STDIN la multimea de descriptori
+  poll_fds[0].fd = STDIN_FILENO;
+  poll_fds[0].events = POLLIN;
+
+  poll_fds[1].fd = listen_udp;
+  poll_fds[1].events = POLLIN;
+
+  poll_fds[2].fd = listen_tcp;
+  poll_fds[2].events = POLLIN;
+
+  int num_clients = 3;
+
+  /*
+          ASCULTARE
+  */
+
+  int ret;
+  while (1)
+  {
+    ret = poll(poll_fds, num_clients, -1);
+    DIE(ret < 0, "eroare la poll");
+
+    for (int i = 0; i < num_clients; i++)
+    {
+
+      // Eveniment pe stdin
+      if (poll_fds[0].revents & POLLIN)
+      {
+        char buf[MSG_MAXSIZE];
+        std::cin.getline(buf, sizeof(buf));
+        if (strcmp(buf, "exit") == 0)
+        {
+          std::cout << "Serverul se inchide\n";
+
+          // Inchidem socketii
+          for (int nr_socket = 1; nr_socket < num_clients; nr_socket++)
+          {
+            close(poll_fds[nr_socket].fd);
+          }
+          return 0;
+        }
+      }
+
+      // Eveniment pe socketul UDP
+      if (poll_fds[1].revents & POLLIN)
+      {
+        std::cout << "Cerere de citire pe socketul UDP\n";
+      }
+
+      if (i > 1 && poll_fds[i].revents & POLLIN)
+      {
+        std::cout << "Cerere de citire pe socketul TCP\n";
+      }
+    }
+  }
 
   return 0;
 }
