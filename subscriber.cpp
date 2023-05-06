@@ -21,7 +21,7 @@
 #include "common.h"
 #include "helpers.h"
 
-void run_client(int sockfd)
+void run_client(int sockfd, char *client_id)
 {
   char buf[MSG_MAXSIZE + 1];
   memset(buf, 0, MSG_MAXSIZE + 1);
@@ -29,9 +29,18 @@ void run_client(int sockfd)
   struct chat_packet sent_packet;
   struct chat_packet recv_packet;
 
-  /* TODO 2.2: Multiplexeaza intre citirea de la tastatura si primirea unui
-     mesaj, ca sa nu mai fie impusa ordinea.
-  */
+  // Send the client ID to the server
+  sent_packet.len = strlen(client_id) + 1;
+  strcpy(sent_packet.message, client_id);
+
+  // Use send_all function to send the pachet to the server.
+  send_all(sockfd, &sent_packet, sizeof(sent_packet));
+
+  // Receive a message and show it's content
+  int rc = recv_all(sockfd, &recv_packet, sizeof(recv_packet));
+  DIE(rc <= 0, "recv_all");
+
+  printf("%s\n", recv_packet.message);
   while (fgets(buf, sizeof(buf), stdin) && !isspace(buf[0]))
   {
     sent_packet.len = strlen(buf) + 1;
@@ -53,6 +62,8 @@ void run_client(int sockfd)
 
 int main(int argc, char *argv[])
 {
+  setvbuf(stdout, NULL, _IONBF, BUFSIZ);
+
   int sockfd = -1;
 
   if (argc != 4)
@@ -73,7 +84,6 @@ int main(int argc, char *argv[])
   DIE(rc != 1, "Given port is invalid");
 
   std::cout << "PORT: " << port << "\n";
-
 
   // Completăm in serv_addr adresa serverului, familia de adrese si portul
   // pentru conectare
@@ -97,7 +107,7 @@ int main(int argc, char *argv[])
   rc = connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr));
   DIE(rc < 0, "connect");
 
-  run_client(sockfd);
+  run_client(sockfd, client_id);
 
   // Inchidem conexiunea si socketul creat
   close(sockfd);

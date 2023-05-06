@@ -188,6 +188,8 @@ void run_chat_multi_server(int listenfd)
 
 int main(int argc, char *argv[])
 {
+  setvbuf(stdout, NULL, _IONBF, BUFSIZ);
+
   if (argc != 2)
   {
     std::cout << "\n Usage: " << argv[0] << " <port>\n";
@@ -291,11 +293,10 @@ int main(int argc, char *argv[])
 
     for (int i = 0; i < num_clients; i++)
     {
-
       // Eveniment pe stdin
       if (poll_fds[0].revents & POLLIN)
       {
-        char buf[MSG_MAXSIZE];
+        char buf[MSG_MAXSIZE + 1];
         std::cin.getline(buf, sizeof(buf));
         if (strcmp(buf, "exit") == 0)
         {
@@ -321,28 +322,63 @@ int main(int argc, char *argv[])
       }
 
       // Eveniment pe socketii TCP
-      if (i > 1 && poll_fds[i].revents & POLLIN)
+
+      if (i > 1 && (poll_fds[i].revents & POLLIN))
       {
-        // a venit o cerere de conexiune pe socketul inactiv (cel cu listen),
-        // pe care serverul o accepta
-        struct sockaddr_in cli_addr;
-        socklen_t cli_len = sizeof(cli_addr);
-        int newsockfd =
-            accept(poll_fds[i].fd, (struct sockaddr *)&cli_addr, &cli_len);
-        DIE(newsockfd < 0, "accept");
+        std::cout << "Cerere de citire pe socketul TCP " << i << "\n";
+        if (poll_fds[i].fd == listen_tcp)
+        {
 
-        // se adauga noul socket intors de accept() la multimea descriptorilor
-        // de citire
-        poll_fds[num_clients].fd = newsockfd;
-        poll_fds[num_clients].events = POLLIN;
-        num_clients++;
+          // a venit o cerere de conexiune pe socketul inactiv (cel cu listen),
+          // pe care serverul o accepta
+          struct sockaddr_in cli_addr;
+          socklen_t cli_len = sizeof(cli_addr);
+          int newsockfd =
+              accept(listen_tcp, (struct sockaddr *)&cli_addr, &cli_len);
+          DIE(newsockfd < 0, "accept");
 
-        printf("Noua conexiune de la %s, port %d, socket client %d\n",
-               inet_ntoa(cli_addr.sin_addr), ntohs(cli_addr.sin_port),
-               newsockfd);
+          // se adauga noul socket intors de accept() la multimea descriptorilor
+          // de citire
+          poll_fds[num_clients].fd = newsockfd;
+          poll_fds[num_clients].events = POLLIN;
+          num_clients++;
+
+          std::cout << "Noua conexiune de la " << inet_ntoa(cli_addr.sin_addr) << ", port "
+                    << ntohs(cli_addr.sin_port) << " , socket client " << newsockfd << "\n";
+        }
+        else
+        {
+          char buf[MSG_MAXSIZE];
+          memset(buf, 0, MSG_MAXSIZE);
+
+          struct chat_packet recv_packet;
+
+          // send_all(sockfd, &sent_packet, sizeof(sent_packet));
+          int rc = recv_all(poll_fds[i].fd, &recv_packet, sizeof(recv_packet));
+          DIE(rc < 0, "recv_all");
+
+          if (strcmp(buf, "exit") == 0)
+          {
+            // conexiunea s-a inchis
+            printf("Socket %d s-a inchis\n", poll_fds[i].fd);
+
+            // se scoate socketul inchis de la polling
+            close(poll_fds[i].fd);
+            poll_fds[i].fd = -1;
+            num_clients--;
+          }
+          else
+          {
+            // afisam mesajul primit
+            printf("[client %d] %s\n", poll_fds[i].fd, recv_packet.message);
+
+            // raspundem clientului cu acelasi mesaj
+            ret = send_all(poll_fds[i].fd, &recv_packet, sizeof(recv_packet));
+            DIE(ret < 0, "send_all");
+          }
+        }
       }
     }
   }
-
   return 0;
 }

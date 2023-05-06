@@ -21,7 +21,7 @@ int recv_all(int sockfd, void *buffer, size_t len)
       }
 
   
-  return recv(sockfd, buffer, len, 0);
+  return bytes_received;
 }
 
 int send_all(int sockfd, void *buffer, size_t len)
@@ -40,5 +40,5 @@ int send_all(int sockfd, void *buffer, size_t len)
       }
   
 
-  return send(sockfd, buffer, len, 0);
+  return bytes_sent;
 }
