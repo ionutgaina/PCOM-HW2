@@ -169,21 +169,23 @@ int main(int argc, char *argv[])
         struct udp_packet udp_packet;
         memset(&udp_packet, 0, sizeof(udp_packet));
 
-        struct sockaddr_in cli_addr;
-        socklen_t len = sizeof(cli_addr);
+        struct sockaddr_in udp_client;
+        socklen_t len = sizeof(udp_client);
 
         // Citim mesajul de pe socketul UDP
-        rc = recvfrom(listen_udp, &udp_packet, sizeof(udp_packet), 0, (struct sockaddr *)&cli_addr, &len);
+        rc = recvfrom(listen_udp, &udp_packet, sizeof(udp_packet), 0, (struct sockaddr *)&udp_client, &len);
         DIE(rc < 0, "recvfrom");
-        ;
 
-        printf("UDP topic %s\n", udp_packet.topic);
-        printf("Data type %d\n", udp_packet.data_type);
-        printf("content %s\n", udp_packet.content);
-        printf("UDP port %d\n", ntohs(cli_addr.sin_port));
-        printf("UDP IP %s\n", inet_ntoa(cli_addr.sin_addr));
+        // printf("UDP topic %s\n", udp_packet.topic);
+        // printf("Data type %d\n", udp_packet.data_type);
+        // printf("content %s\n", udp_packet.content);
+        // printf("UDP port %d\n", ntohs(udp_client.sin_port));
+        // printf("UDP IP %s\n", inet_ntoa(udp_client.sin_addr));
 
-        uint8_t data_type = udp_packet.data_type;
+        Data_Parser data_parser;
+        std::string result = data_parser.parse_udp_message(udp_packet, udp_client);
+
+        std::cout << result << "\n";
       }
 
       if (i > 1 && (poll_fds[i].revents & POLLIN))
