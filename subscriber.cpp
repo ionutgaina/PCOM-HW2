@@ -35,12 +35,12 @@ void run_client(int sockfd, char *client_id)
   sent_packet.len = strlen(client_id);
   strcpy(sent_packet.message, client_id);
 
-  // Use send_all function to send the pachet to the server.
-  rc = send_all(sockfd, &sent_packet, sizeof(sent_packet));
+  // Use send function to send the pachet to the server.
+  rc = send(sockfd, &sent_packet, sizeof(sent_packet), 0);
 
   // Receive a message and show it's content
-  rc = recv_all(sockfd, &recv_packet, sizeof(recv_packet));
-  DIE(rc <= 0, "recv_all");
+  rc = recv(sockfd, &recv_packet, sizeof(recv_packet), 0);
+  DIE(rc <= 0, "recv");
   /*
         DEJA CONECTAT
   */
@@ -142,49 +142,44 @@ void run_client(int sockfd, char *client_id)
 
         sent_packet.message_type = 1;
       }
-      else if (strncmp(command, "exit", 4) != 0)
+      else if (strncmp(command, "exit", 4) == 0)
+      {
+        break;
+      }
+      else
       {
         std::cerr << "Clientul poate trimite doar mesaje de tipul 'exit', 'subscribe <TOPIC> <SF>', 'unsubscribe <TOPIC>'\n";
         std::cout << recv_packet.message << "\n";
         continue;
       }
 
-    // Use send_all function to send the pachet to the server.
-    rc = send_all(sockfd, &sent_packet, sizeof(sent_packet));
+    // Use send function to send the pachet to the server.
+    rc = send(sockfd, &sent_packet, sizeof(sent_packet), 0);
 
     // Receive a message and show it's content
-    rc = recv_all(sockfd, &recv_packet, sizeof(recv_packet));
+    rc = recv(sockfd, &recv_packet, sizeof(recv_packet), 0);
     if (rc <= 0)
     {
       break;
     }
 
     /*
-          EXIT RESPONSE
+          UNSUBSCRIBE RESPONSE
     */
-    if (strncmp(recv_packet.message, "exit", 4) == 0)
+    if (strncmp(recv_packet.message, "unsubscribe", 11) == 0)
     {
-      break;
+      std::cout << "Unsubscribed from topic.\n";
+      continue;
     }
     else
-
       /*
-            UNSUBSCRIBE RESPONSE
+            SUBSCRIBE RESPONSE
       */
-      if (strncmp(recv_packet.message, "unsubscribe", 11) == 0)
+      if (strncmp(recv_packet.message, "subscribe", 9) == 0)
       {
-        std::cout << "Unsubscribed from topic.\n";
+        std::cout << "Subscribed to topic.\n";
         continue;
       }
-      else
-        /*
-              SUBSCRIBE RESPONSE
-        */
-        if (strncmp(recv_packet.message, "subscribe", 9) == 0)
-        {
-          std::cout << "Subscribed to topic.\n";
-          continue;
-        }
   }
 }
 
