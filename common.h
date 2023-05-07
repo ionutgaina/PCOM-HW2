@@ -47,6 +47,7 @@ struct subscribe_packet
 {
   char command[11];
   char topic[TOPIC_MAXSIZE];
+  char id[ID_MAXSIZE];
   uint8_t sf;
 };
 

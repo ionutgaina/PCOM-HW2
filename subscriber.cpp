@@ -87,10 +87,10 @@ void run_client(int sockfd, char *client_id)
 
       strcpy(unsubscription_packet.topic, topic);
       strcpy(unsubscription_packet.command, "unsubscribe");
+      strcpy(unsubscription_packet.id, client_id);
 
       sent_packet.len = sizeof(unsubscription_packet);
       memcpy(sent_packet.message, &unsubscription_packet, sizeof(unsubscription_packet));
-
       sent_packet.message_type = 1;
     }
     else
@@ -136,6 +136,7 @@ void run_client(int sockfd, char *client_id)
         strcpy(subscription_packet.topic, topic);
         strcpy(subscription_packet.command, "subscribe");
         subscription_packet.sf = sf;
+        strcpy(subscription_packet.id, client_id);
 
         sent_packet.len = sizeof(subscription_packet);
         memcpy(sent_packet.message, &subscription_packet, sizeof(subscription_packet));

@@ -53,6 +53,7 @@ int main(int argc, char *argv[])
   // rulam de 2 ori rapid
   int enable = 1;
 
+  // TODO: setam optiunea de socket TCP_NODELAY
   rc = setsockopt(listen_tcp, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int));
   DIE(rc < 0, "setsockopt(TCP_NODELAY) failed");
 
@@ -265,6 +266,28 @@ int main(int argc, char *argv[])
             --num_clients;
             continue;
           }
+
+        /*
+                SUBSCRIBE
+        */
+        else if (recv_packet.message_type == 1 && recv_packet.len == sizeof(subscribe_packet))
+        {
+
+          struct subscribe_packet *subscribe_packet = (struct subscribe_packet *)&recv_packet.message;
+
+          auto it = id_to_client.find(subscribe_packet->id);
+
+          if (it == id_to_client.end())
+          {
+            std::cerr << "SUBSCRIBE: Clientul cu ID-ul "<< subscribe_packet->id <<" nu este conectat\n";
+            continue;
+          }
+
+          Client_TCP *client = it->second;
+
+          // se adauga topicul in map-ul de topicuri
+          client->subscribe_topic(subscribe_packet->topic, subscribe_packet->sf);
+        }
           else
           {
             // afisam mesajul primit

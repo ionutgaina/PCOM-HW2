@@ -9,6 +9,7 @@ class Client_TCP
 {
 public:
   std::unordered_map<std::string, int> topic_to_sf;
+  std::unordered_map<std::string, std::vector<std::string>> topic_to_messages;
   int socket;
 
   Client_TCP(int socket)
@@ -39,5 +40,13 @@ public:
   int get_sf(std::string topic)
   {
     return topic_to_sf[topic];
+  }
+
+  void cout_topics_and_sf(std::string id){
+    std::cout << "TOPICS AND SF: pt user-ul :" << id << "\n";
+    for (auto it = topic_to_sf.begin(); it != topic_to_sf.end(); ++it)
+    {
+      std::cout << it->first << " " << it->second << "\n";
+    }
   }
 };
