@@ -5,17 +5,39 @@
 #include <algorithm>
 #include <vector>
 
-class Client_TCP {
-  public:
-    std::unordered_map<std::string, int> topic_to_sf;
-    int socket;
+class Client_TCP
+{
+public:
+  std::unordered_map<std::string, int> topic_to_sf;
+  int socket;
 
-    Client_TCP(int socket) {
-      this->socket = socket;
-    }
+  Client_TCP(int socket)
+  {
+    this->socket = socket;
+  }
 
+  bool operator==(const Client_TCP &other) const
+  {
+    return socket == other.socket;
+  }
 
-    bool operator==(const Client_TCP& other) const {
-      return socket == other.socket;
-    }
+  void subscribe_topic(std::string topic, int sf)
+  {
+    topic_to_sf[topic] = sf;
+  }
+
+  void unsubscribe_topic(std::string topic)
+  {
+    topic_to_sf.erase(topic);
+  }
+
+  bool is_subscribed(std::string topic)
+  {
+    return topic_to_sf.find(topic) != topic_to_sf.end();
+  }
+
+  int get_sf(std::string topic)
+  {
+    return topic_to_sf[topic];
+  }
 };

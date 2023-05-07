@@ -199,15 +199,29 @@ int main(int argc, char *argv[])
 
           if (it != id_to_client.end())
           {
-            // daca id-ul este deja folosit
-            std::cout << "Client " << recv_packet.message << " already connected.\n";
+            if (it->second->socket != -1)
+            {
+              // daca id-ul este deja folosit
+              std::cout << "Client " << recv_packet.message << " already connected.\n";
 
-            strcpy(recv_packet.message, "already connected");
-            recv_packet.len = strlen(recv_packet.message);
-            ret = send(current_socket, &recv_packet, sizeof(recv_packet), 0);
-            DIE(ret < 0, "send");
-            close(newsockfd);
-            continue;
+              strcpy(recv_packet.message, "already connected");
+              recv_packet.len = strlen(recv_packet.message);
+              ret = send(current_socket, &recv_packet, sizeof(recv_packet), 0);
+              DIE(ret < 0, "send");
+              close(newsockfd);
+              continue;
+            }
+
+            // daca id-ul a fost folosit si s-a deconectat
+            std::cout << "Client reconectat " << recv_packet.message << ".\n";
+            it->second->socket = newsockfd;
+            // TODO trimite mesajele pe care trebuia sa le primeasca la topic-urile cu SF1
+          }
+          else
+          {
+            // se adauga in map-ul de id-uri si socketi
+            Client_TCP *new_client = new Client_TCP(newsockfd);
+            id_to_client.insert({recv_packet.message, new_client});
           }
 
           // se adauga noul socket intors de accept() la multimea descriptorilor
@@ -217,10 +231,6 @@ int main(int argc, char *argv[])
           ++num_clients;
 
           std::cout << "New client " << recv_packet.message << " connected from " << inet_ntoa(cli_addr.sin_addr) << ":" << ntohs(cli_addr.sin_port) << ".\n";
-
-          // se adauga in map-ul de id-uri si socketi
-          Client_TCP *new_client = new Client_TCP(newsockfd);
-          id_to_client.insert({recv_packet.message, new_client});
         }
         else
         {
@@ -243,8 +253,7 @@ int main(int argc, char *argv[])
             std::cout << "Client " << ID_CLIENT << " disconnected.\n";
 
             // se scoate socketul inchis de la polling
-            delete it->second;
-            id_to_client.erase(it);
+            it->second->socket = -1;
             close(poll_fds[i].fd);
 
             // ordonez vectorul de polling
