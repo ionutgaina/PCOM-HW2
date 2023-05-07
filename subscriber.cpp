@@ -86,8 +86,13 @@ void run_client(int sockfd, char *client_id)
       }
 
       strcpy(unsubscription_packet.topic, topic);
+
+      // remove from topic the newline
+      unsubscription_packet.topic[strlen(unsubscription_packet.topic) - 1] = '\0';
+
       strcpy(unsubscription_packet.command, "unsubscribe");
       strcpy(unsubscription_packet.id, client_id);
+      unsubscription_packet.sf = -1;
 
       sent_packet.len = sizeof(unsubscription_packet);
       memcpy(sent_packet.message, &unsubscription_packet, sizeof(unsubscription_packet));

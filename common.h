@@ -28,9 +28,9 @@ struct packet
   uint8_t message_type;
 };
 
-struct subscribe_response_packet
+struct udp_packet
 {
-  char topic[TOPIC_MAXSIZE + 1];
+  char topic[TOPIC_MAXSIZE];
 
   // 0 - Octet de semn* urmat de un uint32_t formatat conform network byte order
   // 1 - uint16_t reprezentând modulul numărului ı̂nmultit cu 100
@@ -45,10 +45,20 @@ struct subscribe_response_packet
 
 struct subscribe_packet
 {
-  char command[11];
+  char command[12];
   char topic[TOPIC_MAXSIZE];
   char id[ID_MAXSIZE];
   uint8_t sf;
 };
 
+
+struct subscribe_response_packet
+{
+  char command[12];
+  char topic[TOPIC_MAXSIZE];
+  uint8_t data_type;
+  uint16_t udp_port;
+  uint32_t udp_ip;
+  char content[MSG_MAXSIZE];
+};
 #endif
