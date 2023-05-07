@@ -45,7 +45,7 @@ struct subscribe_response_packet
 
 struct subscribe_packet
 {
-  char command[11];
+  char command[12];
   char topic[TOPIC_MAXSIZE];
   char id[ID_MAXSIZE];
   uint8_t sf;

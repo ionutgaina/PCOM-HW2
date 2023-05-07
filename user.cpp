@@ -30,6 +30,7 @@ public:
   void unsubscribe_topic(std::string topic)
   {
     topic_to_sf.erase(topic);
+    topic_to_messages.erase(topic);
   }
 
   bool is_subscribed(std::string topic)

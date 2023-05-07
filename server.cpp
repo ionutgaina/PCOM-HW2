@@ -267,31 +267,39 @@ int main(int argc, char *argv[])
             continue;
           }
 
-        /*
-                SUBSCRIBE
-        */
-        else if (recv_packet.message_type == 1 && recv_packet.len == sizeof(subscribe_packet))
-        {
-
-          struct subscribe_packet *subscribe_packet = (struct subscribe_packet *)&recv_packet.message;
-
-          auto it = id_to_client.find(subscribe_packet->id);
-
-          if (it == id_to_client.end())
+          /*
+                  SUBSCRIBE
+          */
+          else if (recv_packet.message_type == 1 && recv_packet.len == sizeof(subscribe_packet))
           {
-            std::cerr << "SUBSCRIBE: Clientul cu ID-ul "<< subscribe_packet->id <<" nu este conectat\n";
-            continue;
-          }
 
-          Client_TCP *client = it->second;
+            struct subscribe_packet *subscribe_packet = (struct subscribe_packet *)&recv_packet.message;
 
-          // se adauga topicul in map-ul de topicuri
-          client->subscribe_topic(subscribe_packet->topic, subscribe_packet->sf);
-        }
-          else
-          {
-            // afisam mesajul primit
-            printf("[client %d] %s\n", poll_fds[i].fd, recv_packet.message);
+            auto it = id_to_client.find(subscribe_packet->id);
+
+            if (it == id_to_client.end())
+            {
+              std::cerr << "SUBSCRIBE: Clientul cu ID-ul " << subscribe_packet->id << " nu este conectat\n";
+              continue;
+            }
+
+            Client_TCP *client = it->second;
+
+            if (strncmp(subscribe_packet->command, "unsubscribe", 11) == 0)
+            {
+              // se sterge topicul din map-ul de topicuri
+              client->unsubscribe_topic(subscribe_packet->topic);
+            }
+            else if (strncmp(subscribe_packet->command, "subscribe", 9) == 0)
+            {
+              // se adauga topicul in map-ul de topicuri sau se actualizeaza sf-ul
+              client->subscribe_topic(subscribe_packet->topic, subscribe_packet->sf);
+            }
+            else
+            {
+              std::cerr << "SUBSCRIBE PACKET: Comanda gresita\n";
+              continue;
+            }
           }
         }
 
