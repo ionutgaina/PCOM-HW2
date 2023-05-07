@@ -35,7 +35,6 @@ public:
     {
       resultstream << "SHORT_REAL - ";
 
-      // uint16_t reprezentând modulul numărului ı̂nmultit cu 100
       uint16_t number = ntohs(*(uint16_t *)(message.content));
       double real = static_cast<double>(number) / 100.0;
       resultstream << std::fixed << std::setprecision(2) << real;
@@ -44,15 +43,35 @@ public:
 
     case 2:
     {
+      resultstream << "FLOAT - ";
+
+      uint8_t sign = message.content[0];
+      uint32_t number = ntohl(*(uint32_t *)(message.content + 1));
+      uint8_t power = message.content[5];
+
+      sign == 1 ? resultstream << "-" : resultstream << "";
+
+      float number_float = static_cast<float>(number);
+
+      for (int i = 0; i < power; i++)
+      {
+        number_float /= 10.0;
+      }
+
+      resultstream << std::fixed << std::setprecision(power) << number_float;
       break;
     }
 
     case 3:
     {
+      resultstream << "STRING - ";
+
+      resultstream << message.content;
       break;
     }
     default:
     {
+      return "";
       break;
     }
     }

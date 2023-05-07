@@ -185,7 +185,11 @@ int main(int argc, char *argv[])
         Data_Parser data_parser;
         std::string result = data_parser.parse_udp_message(udp_packet, udp_client);
 
-        std::cout << result << "\n";
+        if (result == "")
+        {
+          std::cerr << "Mesajul de la clientul UDP nu a putut fi parsat\n";
+          continue;
+        }
       }
 
       if (i > 1 && (poll_fds[i].revents & POLLIN))
