@@ -43,6 +43,11 @@ public:
     return topic_to_sf[topic];
   }
 
+  bool has_topic(std::string topic)
+  {
+    return topic_to_sf.find(topic) != topic_to_sf.end();
+  }
+
   void cout_topics_and_sf(std::string id){
     std::cout << "TOPICS AND SF: pt user-ul :" << id << "\n";
     for (auto it = topic_to_sf.begin(); it != topic_to_sf.end(); ++it)

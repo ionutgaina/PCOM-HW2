@@ -24,7 +24,7 @@ struct packet
   char message[BUFSIZ];
   // 0 - a simple text (YOLO_TYPE)
   // 1 - a subscribe_packet struct (SUBSCRIBE_TYPE)
-  // 2 - a subscription response  (SUBSCRIBE_RESPONSE_TYPE)
+  // 2 - a subscription response  (SUBSCRIBE_RESPONSE)
   uint8_t message_type;
 };
 
@@ -49,16 +49,5 @@ struct subscribe_packet
   char topic[TOPIC_MAXSIZE];
   char id[ID_MAXSIZE];
   uint8_t sf;
-};
-
-
-struct subscribe_response_packet
-{
-  char command[12];
-  char topic[TOPIC_MAXSIZE];
-  uint8_t data_type;
-  uint16_t udp_port;
-  uint32_t udp_ip;
-  char content[MSG_MAXSIZE];
 };
 #endif

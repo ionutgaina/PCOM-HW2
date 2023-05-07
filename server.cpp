@@ -36,6 +36,7 @@ int main(int argc, char *argv[])
 
   int rc, ret, i;
   std::unordered_map<std::string, Client_TCP *> id_to_client;
+  std::unordered_map<std::string, std::vector<std::string>> topic_to_id;
 
   // Parsam port-ul ca un numar
   uint16_t port;
@@ -189,6 +190,26 @@ int main(int argc, char *argv[])
         {
           std::cerr << "Mesajul de la clientul UDP nu a putut fi parsat\n";
           continue;
+        }
+
+        // Cautam in map-ul de topicuri clientul care are topicul respectiv
+        for (auto it = id_to_client.begin(); it != id_to_client.end(); it++)
+        {
+          if (it->second->has_topic(udp_packet.topic))
+          {
+            // Daca clientul are topicul, trimitem mesajul
+            int socket = it->second->socket;
+
+            struct packet send_packet;
+            memset(&send_packet, 0, sizeof(send_packet));
+            send_packet.len = result.size();
+            send_packet.message_type = 2;
+
+            strcpy(send_packet.message, result.c_str());
+
+            rc = send(socket, &send_packet, sizeof(send_packet), 0);
+            DIE(rc < 0, "send");
+          }
         }
       }
 

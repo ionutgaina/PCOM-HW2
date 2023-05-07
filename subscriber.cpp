@@ -89,7 +89,7 @@ void run_client(int sockfd, char *client_id)
 
       // remove from topic the newline
       unsubscription_packet.topic[strlen(unsubscription_packet.topic) - 1] = '\0';
-      
+
       strcpy(unsubscription_packet.command, "unsubscribe");
       strcpy(unsubscription_packet.id, client_id);
       unsubscription_packet.sf = -1;
@@ -155,7 +155,6 @@ void run_client(int sockfd, char *client_id)
       else
       {
         std::cerr << "Clientul poate trimite doar mesaje de tipul 'exit', 'subscribe <TOPIC> <SF>', 'unsubscribe <TOPIC>'\n";
-        std::cout << recv_packet.message << "\n";
         continue;
       }
 
@@ -169,6 +168,11 @@ void run_client(int sockfd, char *client_id)
       break;
     }
 
+    if (recv_packet.message_type == 2)
+    {
+      std::cout << recv_packet.message << "\n";
+      continue;
+    }
     /*
           UNSUBSCRIBE RESPONSE
     */
@@ -177,15 +181,15 @@ void run_client(int sockfd, char *client_id)
       std::cout << "Unsubscribed from topic.\n";
       continue;
     }
-    else
-      /*
-            SUBSCRIBE RESPONSE
-      */
-      if (strncmp(recv_packet.message, "subscribe", 9) == 0)
-      {
-        std::cout << "Subscribed to topic.\n";
-        continue;
-      }
+
+    /*
+          SUBSCRIBE RESPONSE
+    */
+    if (strncmp(recv_packet.message, "subscribe", 9) == 0)
+    {
+      std::cout << "Subscribed to topic.\n";
+      continue;
+    }
   }
 }
 
