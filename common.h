@@ -13,6 +13,7 @@ int recv_all(int sockfd, void *buff, size_t len);
 #define TOPIC_MAXSIZE 50
 #define MAX_CLIENTS 10
 #define ID_MAXSIZE 10
+#define MAX_CONNECTIONS 32
 
 #define YOLO_TYPE 0
 #define SUBSCRIBE_TYPE 1
@@ -20,12 +21,12 @@ int recv_all(int sockfd, void *buff, size_t len);
 
 struct packet
 {
-  uint16_t len;
-  char message[BUFSIZ];
   // 0 - a simple text (YOLO_TYPE)
   // 1 - a subscribe_packet struct (SUBSCRIBE_TYPE)
   // 2 - a subscription response  (SUBSCRIBE_RESPONSE)
   uint8_t message_type;
+  uint16_t len;
+  char message[MSG_MAXSIZE];
 };
 
 struct udp_packet

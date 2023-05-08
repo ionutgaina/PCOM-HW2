@@ -26,7 +26,6 @@
 #include "./user.cpp"
 #include "./data_parser.cpp"
 
-#define MAX_CONNECTIONS 32
 
 int main(int argc, char *argv[])
 {
@@ -177,12 +176,6 @@ int main(int argc, char *argv[])
         rc = recvfrom(listen_udp, &udp_packet, sizeof(udp_packet), 0, (struct sockaddr *)&udp_client, &len);
         DIE(rc < 0, "recvfrom");
 
-        // printf("UDP topic %s\n", udp_packet.topic);
-        // printf("Data type %d\n", udp_packet.data_type);
-        // printf("content %s\n", udp_packet.content);
-        // printf("UDP port %d\n", ntohs(udp_client.sin_port));
-        // printf("UDP IP %s\n", inet_ntoa(udp_client.sin_addr));
-
         Data_Parser data_parser;
         std::string result = data_parser.parse_udp_message(udp_packet, udp_client);
 
@@ -282,12 +275,11 @@ int main(int argc, char *argv[])
         {
 
           rc = recv(poll_fds[i].fd, &recv_packet, sizeof(recv_packet), 0);
-          DIE(rc < 0, "recv");
           current_socket = poll_fds[i].fd;
           /*
                   INCHID CONEXIUNE (EXIT)
           */
-          if (rc == 0)
+          if (rc <= 0)
           {
             // conexiunea s-a inchis
             auto it = std::find_if(id_to_client.begin(), id_to_client.end(), [&](const std::pair<std::string, Client_TCP *> &p)
