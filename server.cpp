@@ -105,6 +105,7 @@ void run_server(struct pollfd poll_fds[], int num_sockets)
       */
       if ((poll_fds[i].revents & POLLIN) && (poll_fds[i].fd == STDIN_FILENO))
       {
+        std::cout << "Eveniment pe STDIN\n";
         char buf[BUFSIZ];
         scanf("%s", buf);
 
@@ -138,6 +139,7 @@ void run_server(struct pollfd poll_fds[], int num_sockets)
         // Eveniment pe socketul UDP
         if ((poll_fds[i].revents & POLLIN) && (i == 1))
         {
+          std::cout << "Eveniment pe socketul UDP\n";
           struct udp_packet udp_packet;
           memset(&udp_packet, 0, sizeof(udp_packet));
 
@@ -162,18 +164,28 @@ void run_server(struct pollfd poll_fds[], int num_sockets)
           {
             if (it->second->has_topic(udp_packet.topic))
             {
-              // Daca clientul are topicul, trimitem mesajul
               int socket = it->second->socket;
+              if (socket == -1)
+              {
+                // clientul are topicul si are sf = 1, deci trebuie sa salveze mesajul
+                if (it->second->get_sf(udp_packet.topic) == 1)
+                {
+                  it->second->add_message(udp_packet.topic, result.c_str());
+                }
+              }
+              else
+              {
+                // clientul are topicul, trimitem mesajul
+                struct packet send_packet;
+                memset(&send_packet, 0, sizeof(send_packet));
+                send_packet.header.len = result.size();
+                send_packet.header.message_type = 0;
 
-              struct packet send_packet;
-              memset(&send_packet, 0, sizeof(send_packet));
-              send_packet.header.len = result.size();
-              send_packet.header.message_type = 0;
+                strcpy(send_packet.content, result.c_str());
 
-              strcpy(send_packet.content, result.c_str());
-
-              ret = send_all(socket, &send_packet, sizeof(send_packet));
-              DIE(ret < 0, "send");
+                ret = send_all(socket, &send_packet, sizeof(send_packet));
+                DIE(ret < 0, "send");
+              }
             }
           }
         }
@@ -217,7 +229,21 @@ void run_server(struct pollfd poll_fds[], int num_sockets)
 
               // reconectat
               it->second->socket = newsockfd;
-              // TODO trimite mesajele pe care trebuia sa le primeasca la topic-urile cu SF1
+              // trimite mesajele pe care trebuia sa le primeasca la topic-urile cu SF1
+              std::vector<std::string> messages = it->second->get_messages_from_topics();
+
+              for (auto &message : messages)
+              {
+                struct packet send_packet;
+                memset(&send_packet, 0, sizeof(send_packet));
+                send_packet.header.len = message.size();
+                send_packet.header.message_type = 0;
+
+                strcpy(send_packet.content, message.c_str());
+
+                ret = send_all(newsockfd, &send_packet, sizeof(send_packet));
+                DIE(ret < 0, "send");
+              }
             }
             else
             {
@@ -238,6 +264,7 @@ void run_server(struct pollfd poll_fds[], int num_sockets)
           }
           else if ((poll_fds[i].revents & POLLIN) && (i > 2))
           {
+            std::cout << "Eveniment pe socketul TCP\n";
             struct packet recv_packet;
             ret = recv_all(poll_fds[i].fd, &recv_packet, sizeof(recv_packet));
             DIE(ret < 0, "recv_all");

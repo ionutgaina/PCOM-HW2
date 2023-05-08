@@ -45,7 +45,7 @@ struct udp_packet
   //     ı̂nmultit modulul pentru a obtine numărul original (ı̂n modul)
   // 3 - Sir de maxim 1500 de caractere, terminat cu \0 sau delimitat de finalul datagramei pentru lungimi mai mici
   uint8_t data_type;
-  char content[MSG_MAXSIZE];
+  char content[MSG_MAXSIZE + 1];
 };
 
 struct subscribe_packet

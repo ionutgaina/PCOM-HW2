@@ -1,3 +1,20 @@
+subscribe a_non_negative_int 1
+subscribe a_negative_int 1
+subscribe a_larger_value 1
+subscribe a_large_negative_value 1
+subscribe abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwx 1
+subscribe that_is_small_short_real 1
+subscribe that_is_big_short_real 1
+subscribe that_is_integer_short_real 1
+subscribe float_seventeen 1
+subscribe float_minus_seventeen 1
+subscribe a_strange_float 1
+subscribe a_negative_strange_float 1
+subscribe a_subunitary_float 1
+subscribe a_negative_subunitary_float 1
+subscribe ana_string_announce 1
+subscribe huge_string 1
+
 subscribe a_non_negative_int 0
 subscribe a_negative_int 0
 subscribe a_larger_value 0
@@ -14,3 +31,21 @@ subscribe a_subunitary_float 0
 subscribe a_negative_subunitary_float 0
 subscribe ana_string_announce 0
 subscribe huge_string 0
+
+
+unsubscribe a_non_negative_int 
+unsubscribe a_negative_int 
+unsubscribe a_larger_value 
+unsubscribe a_large_negative_value 
+unsubscribe abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwx 
+unsubscribe that_is_small_short_real 
+unsubscribe that_is_big_short_real 
+unsubscribe that_is_integer_short_real 
+unsubscribe float_seventeen 
+unsubscribe float_minus_seventeen 
+unsubscribe a_strange_float 
+unsubscribe a_negative_strange_float 
+unsubscribe a_subunitary_float 
+unsubscribe a_negative_subunitary_float 
+unsubscribe ana_string_announce 
+unsubscribe huge_string 

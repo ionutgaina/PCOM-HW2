@@ -74,8 +74,9 @@ public:
     return topics;
   }
 
-  std::vector<std::string> get_messages_from_topics(std::vector<std::string> topics)
+  std::vector<std::string> get_messages_from_topics()
   {
+    std::vector<std::string> topics = get_topics_sf_1();
     std::vector<std::string> messages;
     for (auto it = topics.begin(); it != topics.end(); ++it)
     {
