@@ -20,6 +20,7 @@ class Sockets
 
 public:
   struct sockaddr_in serv_addr;
+  struct sockaddr_in cli_addr;
 
   Sockets(char *address, uint16_t port)
   {
@@ -28,6 +29,11 @@ public:
     serv_addr.sin_port = htons(port);
     int rc = inet_pton(AF_INET, address, &serv_addr.sin_addr.s_addr);
     DIE(rc <= 0, "IP Server is invalid (inet_pton)");
+
+    memset(&cli_addr, 0, sizeof(cli_addr));
+    cli_addr.sin_family = AF_INET;
+    cli_addr.sin_port = htons(port);
+    cli_addr.sin_addr.s_addr = INADDR_ANY;
   };
 
   Sockets(uint16_t port)
@@ -82,7 +88,7 @@ public:
     int sockfd = init_socket(type_of_socket, optname);
 
     // Ne conectăm la server
-    int rc = connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr));
+    int rc = connect(sockfd, (struct sockaddr *)&cli_addr, sizeof(cli_addr));
     DIE(rc < 0, "connect");
 
     return sockfd;

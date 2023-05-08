@@ -103,16 +103,10 @@ void run_server(struct pollfd poll_fds[], int num_sockets)
       /*
         STDIN
       */
-      if (i == 0 && (poll_fds[0].revents & POLLIN))
+      if ((poll_fds[i].revents & POLLIN) && (poll_fds[i].fd == STDIN_FILENO))
       {
         char buf[BUFSIZ];
-        std::cin.getline(buf, sizeof(buf));
-
-        // sterge newline-ul
-        if (buf[strlen(buf) - 1] == '\n')
-        {
-          buf[strlen(buf) - 1] = '\0';
-        }
+        scanf("%s", buf);
 
         if (strcmp(buf, "exit") == 0)
         {
@@ -137,173 +131,176 @@ void run_server(struct pollfd poll_fds[], int num_sockets)
           continue;
         }
       }
-      /*
-        UDP
-      */
-      // Eveniment pe socketul UDP
-      if (i == 1 && poll_fds[1].revents & POLLIN)
-      {
-        struct udp_packet udp_packet;
-        memset(&udp_packet, 0, sizeof(udp_packet));
-
-        struct sockaddr_in udp_client;
-        socklen_t len = sizeof(udp_client);
-
-        // Citim mesajul de pe socketul UDP
-        int ret = recvfrom(poll_fds[1].fd, &udp_packet, sizeof(udp_packet), 0, (struct sockaddr *)&udp_client, &len);
-        DIE(ret < 0, "recvfrom");
-
-        Data_Parser data_parser;
-        std::string result = data_parser.parse_udp_message(udp_packet, udp_client);
-
-        if (result == "")
+      else
+        /*
+          UDP
+        */
+        // Eveniment pe socketul UDP
+        if ((poll_fds[i].revents & POLLIN) && (i == 1))
         {
-          std::cerr << "Mesajul de la clientul UDP nu a putut fi parsat\n";
-          continue;
-        }
+          struct udp_packet udp_packet;
+          memset(&udp_packet, 0, sizeof(udp_packet));
 
-        // Cautam in map-ul de topicuri clientul care are topicul respectiv
-        for (auto it = id_to_client.begin(); it != id_to_client.end(); it++)
-        {
-          if (it->second->has_topic(udp_packet.topic))
+          struct sockaddr_in udp_client;
+          socklen_t len = sizeof(udp_client);
+
+          // Citim mesajul de pe socketul UDP
+          int ret = recvfrom(poll_fds[1].fd, &udp_packet, sizeof(udp_packet), 0, (struct sockaddr *)&udp_client, &len);
+          DIE(ret < 0, "recvfrom");
+
+          Data_Parser data_parser;
+          std::string result = data_parser.parse_udp_message(udp_packet, udp_client);
+
+          if (result == "")
           {
-            // Daca clientul are topicul, trimitem mesajul
-            int socket = it->second->socket;
-
-            struct packet send_packet;
-            memset(&send_packet, 0, sizeof(send_packet));
-            send_packet.header.len = result.size();
-            send_packet.header.message_type = 0;
-
-            strcpy(send_packet.content, result.c_str());
-
-            ret = send_all(socket, &send_packet, sizeof(send_packet));
-            DIE(ret < 0, "send");
-          }
-        }
-      }
-
-      /*
-        TCP
-      */
-
-      if (i == 2 && (poll_fds[2].revents & POLLIN))
-      {
-        // a venit o cerere de conexiune pe socketul inactiv (cel cu listen),
-        // pe care serverul o accepta
-        struct sockaddr_in cli_addr;
-        socklen_t cli_len = sizeof(cli_addr);
-
-        struct packet recv_packet;
-
-        int newsockfd =
-            accept(poll_fds[2].fd, (struct sockaddr *)&cli_addr, &cli_len);
-        DIE(newsockfd < 0, "accept");
-
-        ret = recv_all(newsockfd, &recv_packet, sizeof(recv_packet));
-        DIE(ret < 0, "recv_all");
-
-        // se verifica daca id-ul este deja folosit
-
-        std::string id = std::string(recv_packet.content, recv_packet.header.len);
-
-        auto it = id_to_client.find(id);
-
-        if (it != id_to_client.end())
-        {
-          if (it->second->socket != -1)
-          {
-            // daca id-ul este deja folosit
-            std::cout << "Client " << id << " already connected.\n";
-            close(newsockfd);
+            std::cerr << "Mesajul de la clientul UDP nu a putut fi parsat\n";
             continue;
           }
 
-          // reconectat
-          it->second->socket = newsockfd;
-          // TODO trimite mesajele pe care trebuia sa le primeasca la topic-urile cu SF1
+          // Cautam in map-ul de topicuri clientul care are topicul respectiv
+          for (auto it = id_to_client.begin(); it != id_to_client.end(); it++)
+          {
+            if (it->second->has_topic(udp_packet.topic))
+            {
+              // Daca clientul are topicul, trimitem mesajul
+              int socket = it->second->socket;
+
+              struct packet send_packet;
+              memset(&send_packet, 0, sizeof(send_packet));
+              send_packet.header.len = result.size();
+              send_packet.header.message_type = 0;
+
+              strcpy(send_packet.content, result.c_str());
+
+              ret = send_all(socket, &send_packet, sizeof(send_packet));
+              DIE(ret < 0, "send");
+            }
+          }
         }
         else
-        {
-          // se adauga in map-ul de id-uri si socketi
-          Client_TCP *new_client = new Client_TCP(newsockfd);
-          id_to_client.insert({id, new_client});
-        }
 
-        // se adauga noul socket intors de accept() la multimea descriptorilor
-        // de citire
-        poll_fds[num_sockets].fd = newsockfd;
-        poll_fds[num_sockets].events = POLLIN;
-        poll_fds[num_sockets].revents = 0;
-        ++num_sockets;
+          /*
+            TCP
+          */
 
-        std::cout << "New client " << id << " connected from " << inet_ntoa(cli_addr.sin_addr) << ":" << ntohs(cli_addr.sin_port) << ".\n";
-      }
-      else if (i > 2 && (poll_fds[i].revents & POLLIN))
-      {
-        struct packet recv_packet;
-        ret = recv_all(poll_fds[i].fd, &recv_packet, sizeof(recv_packet));
-        /*
-                INCHID CONEXIUNE (EXIT)
-        */
-        if (ret <= 0)
-        {
-          // conexiunea s-a inchis
-          auto it = std::find_if(id_to_client.begin(), id_to_client.end(), [&](const std::pair<std::string, Client_TCP *> &p)
-                                 { return p.second->socket == poll_fds[i].fd; });
-
-          DIE(it == id_to_client.end(), "Eroare la gasirea socketului in map");
-
-          std::string ID_CLIENT = it->first;
-          std::cout << "Client " << ID_CLIENT << " disconnected.\n";
-
-          // se scoate socketul inchis de la polling
-          it->second->socket = -1;
-          close(poll_fds[i].fd);
-
-          // ordonez vectorul de polling
-          for (int j = i; j < num_sockets - 1; j++)
+          if ((poll_fds[2].revents & POLLIN) && (i == 2))
           {
-            poll_fds[j] = poll_fds[j + 1];
+            // a venit o cerere de conexiune pe socketul inactiv (cel cu listen),
+            // pe care serverul o accepta
+            struct sockaddr_in cli_addr;
+            socklen_t cli_len = sizeof(cli_addr);
+
+            struct packet recv_packet;
+
+            int newsockfd =
+                accept(poll_fds[2].fd, (struct sockaddr *)&cli_addr, &cli_len);
+            DIE(newsockfd < 0, "accept");
+
+            ret = recv_all(newsockfd, &recv_packet, sizeof(recv_packet));
+            DIE(ret < 0, "recv_all");
+
+            // se verifica daca id-ul este deja folosit
+
+            std::string id = std::string(recv_packet.content, recv_packet.header.len);
+
+            auto it = id_to_client.find(id);
+
+            if (it != id_to_client.end())
+            {
+              if (it->second->socket != -1)
+              {
+                // daca id-ul este deja folosit
+                std::cout << "Client " << id << " already connected.\n";
+                close(newsockfd);
+                continue;
+              }
+
+              // reconectat
+              it->second->socket = newsockfd;
+              // TODO trimite mesajele pe care trebuia sa le primeasca la topic-urile cu SF1
+            }
+            else
+            {
+              // se adauga in map-ul de id-uri si socketi
+              Client_TCP *new_client = new Client_TCP(newsockfd);
+              DIE(new_client == nullptr, "new_client");
+              id_to_client.insert({id, new_client});
+            }
+
+            // se adauga noul socket intors de accept() la multimea descriptorilor
+            // de citire
+            poll_fds[num_sockets].fd = newsockfd;
+            poll_fds[num_sockets].events = POLLIN;
+            poll_fds[num_sockets].revents = 0;
+            ++num_sockets;
+
+            std::cout << "New client " << id << " connected from " << inet_ntoa(cli_addr.sin_addr) << ":" << ntohs(cli_addr.sin_port) << ".\n";
           }
-
-          num_sockets--;
-        }
-        /*
-                SUBSCRIBE
-        */
-        else if (recv_packet.header.message_type == 1 && recv_packet.header.len == sizeof(subscribe_packet))
-        {
-
-          struct subscribe_packet *subscribe_packet = (struct subscribe_packet *)&recv_packet.content;
-
-          auto it = id_to_client.find(subscribe_packet->id);
-
-          if (it == id_to_client.end())
+          else if ((poll_fds[i].revents & POLLIN) && (i > 2))
           {
-            std::cerr << "SUBSCRIBE: Clientul cu ID-ul " << subscribe_packet->id << " nu este conectat\n";
-            continue;
-          }
+            struct packet recv_packet;
+            ret = recv_all(poll_fds[i].fd, &recv_packet, sizeof(recv_packet));
+            /*
+                    INCHID CONEXIUNE (EXIT)
+            */
+            if (ret <= 0)
+            {
+              // conexiunea s-a inchis
+              auto it = std::find_if(id_to_client.begin(), id_to_client.end(), [&](const std::pair<std::string, Client_TCP *> &p)
+                                     { return p.second->socket == poll_fds[i].fd; });
 
-          Client_TCP *client = it->second;
+              DIE(it == id_to_client.end(), "Eroare la gasirea socketului in map");
 
-          if (strncmp(subscribe_packet->command, "unsubscribe", 11) == 0)
-          {
-            // se sterge topicul din map-ul de topicuri
-            client->unsubscribe_topic(subscribe_packet->topic);
+              std::string ID_CLIENT = it->first;
+              std::cout << "Client " << ID_CLIENT << " disconnected.\n";
+
+              // se scoate socketul inchis de la polling
+              it->second->socket = -1;
+              close(poll_fds[i].fd);
+
+              // ordonez vectorul de polling
+              for (int j = i; j < num_sockets - 1; j++)
+              {
+                poll_fds[j] = poll_fds[j + 1];
+              }
+
+              num_sockets--;
+            }
+            /*
+                    SUBSCRIBE
+            */
+            else if (recv_packet.header.message_type == 1 && recv_packet.header.len == sizeof(subscribe_packet))
+            {
+
+              struct subscribe_packet *subscribe_packet = (struct subscribe_packet *)&recv_packet.content;
+
+              auto it = id_to_client.find(subscribe_packet->id);
+
+              if (it == id_to_client.end())
+              {
+                std::cerr << "SUBSCRIBE: Clientul cu ID-ul " << subscribe_packet->id << " nu este conectat\n";
+                continue;
+              }
+
+              Client_TCP *client = it->second;
+
+              if (strncmp(subscribe_packet->command, "unsubscribe", 11) == 0)
+              {
+                // se sterge topicul din map-ul de topicuri
+                client->unsubscribe_topic(subscribe_packet->topic);
+              }
+              else if (strncmp(subscribe_packet->command, "subscribe", 9) == 0)
+              {
+                // se adauga topicul in map-ul de topicuri sau se actualizeaza sf-ul
+                client->subscribe_topic(subscribe_packet->topic, subscribe_packet->sf);
+              }
+              else
+              {
+                std::cerr << "SUBSCRIBE PACKET: Comanda gresita\n";
+                continue;
+              }
+            }
           }
-          else if (strncmp(subscribe_packet->command, "subscribe", 9) == 0)
-          {
-            // se adauga topicul in map-ul de topicuri sau se actualizeaza sf-ul
-            client->subscribe_topic(subscribe_packet->topic, subscribe_packet->sf);
-          }
-          else
-          {
-            std::cerr << "SUBSCRIBE PACKET: Comanda gresita\n";
-            continue;
-          }
-        }
-      }
     }
   }
 }

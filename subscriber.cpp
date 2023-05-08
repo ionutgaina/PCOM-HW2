@@ -17,13 +17,13 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <iostream>
+#include <netinet/tcp.h>
 
 #include "common.h"
 #include "helpers.h"
 #include "./sockets.cpp"
 
 void run_client(struct pollfd poll_fds[], int num_sockets, char *client_id);
-struct packet create_subscribe_packet(char command[], char topic[], int sf);
 
 int main(int argc, char *argv[])
 {
@@ -35,7 +35,7 @@ int main(int argc, char *argv[])
 
   // Parsam ID-ul clientului
   char *client_id = argv[1];
-  DIE(strlen(client_id) > 10 && strlen(client_id) == 0, "Client ID is invalid");
+  DIE(strlen(client_id) > 10 || strlen(client_id) == 0, "Client ID is invalid");
 
   // Parsam port-ul ca un numar
   uint16_t port;
