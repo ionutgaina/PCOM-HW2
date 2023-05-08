@@ -48,6 +48,7 @@ int send_allpacket(int sockfd, struct packet *sent_packet)
 
   ret = send_all(sockfd, sent_packet->content, sent_packet->header.len);
   DIE(ret < 0, "send_all");
+  free(sent_packet->content);
   return ret;
 }
 

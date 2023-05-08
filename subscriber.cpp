@@ -222,15 +222,21 @@ void run_client(struct pollfd poll_fds[], int num_sockets, char *client_id)
         DIE(ret < 0, "recv_allpacket");
         if (ret == 0)
         {
+          if (recv_packet.content != NULL)
+            free(recv_packet.content);
           return;
         }
 
         if (recv_packet.header.message_type == 0)
         {
           std::cout << recv_packet.content << "\n";
+          if (recv_packet.content != NULL)
+            free(recv_packet.content);
           continue;
         }
         std::cerr << "Serverul a trimis un mesaj neinteles: " << recv_packet.content << "\n";
+        if (recv_packet.content != NULL)
+          free(recv_packet.content);
         continue;
       }
     }
