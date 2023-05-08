@@ -9,6 +9,7 @@ int send_all(int sockfd, void *buff, size_t len);
 int recv_all(int sockfd, void *buff, size_t len);
 
 /* Dimensiunea maxima a mesajului */
+#define PACKET_SIZE 1700
 #define MSG_MAXSIZE 1500
 #define TOPIC_MAXSIZE 50
 #define MAX_CLIENTS 10
@@ -18,15 +19,18 @@ int recv_all(int sockfd, void *buff, size_t len);
 #define YOLO_TYPE 0
 #define SUBSCRIBE_TYPE 1
 #define SUBSCRIBE_RESPONSE_TYPE 2
-
+struct packet_header
+{
+  uint8_t message_type;
+  uint16_t len;
+};
 struct packet
 {
   // 0 - a simple text (YOLO_TYPE)
   // 1 - a subscribe_packet struct (SUBSCRIBE_TYPE)
   // 2 - a subscription response  (SUBSCRIBE_RESPONSE)
-  uint8_t message_type;
-  uint16_t len;
-  char message[MSG_MAXSIZE];
+  struct packet_header header;
+  char content[PACKET_SIZE];
 };
 
 struct udp_packet
@@ -47,7 +51,7 @@ struct udp_packet
 struct subscribe_packet
 {
   char command[12];
-  char topic[TOPIC_MAXSIZE];
+  char topic[TOPIC_MAXSIZE + 1];
   char id[ID_MAXSIZE];
   uint8_t sf;
 };

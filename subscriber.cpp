@@ -20,52 +20,77 @@
 
 #include "common.h"
 #include "helpers.h"
+#include "./sockets.cpp"
 
-void run_client(struct pollfd poll_fds[], int num_clients, char *client_id)
+void run_client(struct pollfd poll_fds[], int num_sockets, char *client_id);
+struct packet create_subscribe_packet(char command[], char topic[], int sf);
+
+int main(int argc, char *argv[])
 {
+  setvbuf(stdout, NULL, _IONBF, BUFSIZ);
 
-  int rc, ret;
+  int tcp_sock = -1;
+
+  DIE(argc != 4, "Usage: ./subscriber <ID_Client> <IP_Server> <Port_Server>");
+
+  // Parsam ID-ul clientului
+  char *client_id = argv[1];
+  DIE(strlen(client_id) > 10 && strlen(client_id) == 0, "Client ID is invalid");
+
+  // Parsam port-ul ca un numar
+  uint16_t port;
+  int ret = sscanf(argv[3], "%hu", &port);
+  DIE(ret != 1, "Given port is invalid");
+
+  Sockets socket = Sockets(argv[2], port);
+
+  // Deschidem un socket TCP
+  tcp_sock = socket.init_tcp_client(SOCK_STREAM, SO_REUSEADDR);
+
+  struct pollfd poll_fds[MAX_CONNECTIONS];
+
+  poll_fds[0].fd = STDIN_FILENO;
+  poll_fds[0].events = POLLIN;
+
+  poll_fds[1].fd = tcp_sock;
+  poll_fds[1].events = POLLIN;
+
+  int num_sockets = 2;
+
+  run_client(poll_fds, num_sockets, client_id);
+
+  // Inchidem conexiunea si socketul creat
+  close(tcp_sock);
+
+  return 0;
+}
+
+void run_client(struct pollfd poll_fds[], int num_sockets, char *client_id)
+{
+  int ret;
   char buf[BUFSIZ];
   memset(buf, 0, BUFSIZ);
 
-  struct packet sent_packet;
-  struct packet recv_packet;
+  struct packet send_packet;
 
-  // Send the client ID to the server
-  sent_packet.len = strlen(client_id);
-  strcpy(sent_packet.message, client_id);
+  send_packet.header.len = strlen(client_id);
+  send_packet.header.message_type = 0;
 
-  // Use send function to send the pachet to the server.
-  rc = send(poll_fds[1].fd, &sent_packet, sizeof(sent_packet), 0);
+  strcpy(send_packet.content, client_id);
 
-  // Receive a message and show it's content
-  rc = recv(poll_fds[1].fd, &recv_packet, sizeof(recv_packet), 0);
-  DIE(rc <= 0, "recv");
-
-  if (strncmp(recv_packet.message, "already connected", 17) == 0)
-  {
-    DIE(1, "Clientul este deja conectat");
-  }
-  else if (strncmp(recv_packet.message, client_id, strlen(client_id)) != 0)
-  {
-    DIE(1, "Serverul nu a primit ID-ul clientului");
-  }
-
-  /*
-        DEJA CONECTAT
-  */
+  // trimite id-ul spre server
+  ret = send(poll_fds[1].fd, &send_packet, sizeof(send_packet), 0);
+  DIE(ret < 0, "send");
 
   while (1)
   {
-    ret = poll(poll_fds, num_clients, -1);
+    ret = poll(poll_fds, num_sockets, -1);
     DIE(ret < 0, "poll");
 
-    for (int i = 0; i < num_clients; i++)
+    for (int i = 0; i < num_sockets; i++)
     {
-
-      if (i == 0 && poll_fds[0].revents & POLLIN)
+      if (i == 0 && (poll_fds[0].revents & POLLIN))
       {
-        memset(buf, 0, BUFSIZ);
         std::cin.getline(buf, sizeof(buf));
 
         // sterge newline-ul
@@ -74,24 +99,23 @@ void run_client(struct pollfd poll_fds[], int num_clients, char *client_id)
           buf[strlen(buf) - 1] = '\0';
         }
 
-        sent_packet.len = strlen(buf);
-        strcpy(sent_packet.message, buf);
-
-        /*
-                 UNSUBSCRIBE
-        */
-
-        // copy buf
-        char buf_copy[BUFSIZ];
-        strcpy(buf_copy, buf);
-
-        if (strlen(buf_copy) == 0)
+        if (strlen(buf) == 0)
         {
           std::cerr << "Clientul poate trimite doar mesaje de tipul 'exit', 'subscribe <TOPIC> <SF>', 'unsubscribe <TOPIC>'\n";
-          break;
+          continue;
         }
 
-        char *command = strtok(buf_copy, " ");
+        char *command = strtok(buf, " ");
+        /*
+          EXIT
+        */
+        if (strncmp(command, "exit", 4) == 0)
+        {
+          return;
+        }
+        /*
+          UNSUBSCRIBE
+        */
         if (strncmp(command, "unsubscribe", 11) == 0)
         {
           struct subscribe_packet unsubscription_packet;
@@ -114,175 +138,97 @@ void run_client(struct pollfd poll_fds[], int num_clients, char *client_id)
             break;
           }
 
-          strcpy(unsubscription_packet.topic, topic);
-
-          // remove from the topic the newline
-          if (unsubscription_packet.topic[strlen(unsubscription_packet.topic) - 1] == '\n')
-          {
-            unsubscription_packet.topic[strlen(unsubscription_packet.topic) - 1] = '\0';
-          }
-
           strcpy(unsubscription_packet.command, "unsubscribe");
-          strcpy(unsubscription_packet.id, client_id);
+          strcpy(unsubscription_packet.topic, topic);
           unsubscription_packet.sf = -1;
 
-          sent_packet.len = sizeof(unsubscription_packet);
-          memcpy(sent_packet.message, &unsubscription_packet, sizeof(unsubscription_packet));
-          sent_packet.message_type = 1;
+          send_packet.header.len = sizeof(unsubscription_packet);
+          memcpy(send_packet.content, &unsubscription_packet, sizeof(unsubscription_packet));
+          send_packet.header.message_type = 1;
+
+          ret = send_all(poll_fds[1].fd, &send_packet, sizeof(send_packet));
+          DIE(ret < 0, "send");
+
+          std::cout << "Unsubscribed from topic.\n";
+          continue;
         }
-        else
-          /*
-            SUBSCRIBE
-          */
-          if (strncmp(command, "subscribe", 9) == 0)
+        /*
+          SUBSCRIBE
+        */
+        if (strncmp(command, "subscribe", 9) == 0)
+        {
+          struct subscribe_packet subscription_packet;
+          char *topic = strtok(NULL, " ");
+          if (topic == NULL)
           {
-            struct subscribe_packet subscription_packet;
-            char *topic = strtok(NULL, " ");
-            if (topic == NULL)
-            {
-              std::cerr << "Topic nu este definit\n";
-              break;
-            }
-
-            if (strlen(topic) > 50)
-            {
-              std::cerr << "Topicul este prea lung\n";
-              break;
-            }
-            char *sf_string = strtok(NULL, " ");
-
-            if (sf_string == NULL)
-            {
-              std::cerr << "SF nu este definit\n";
-              break;
-            }
-
-            int sf = atoi(sf_string);
-            if (sf != 0 && sf != 1)
-            {
-              std::cerr << "SF nu este 0 sau 1\n";
-              break;
-            }
-
-            if (strtok(NULL, " ") != NULL)
-            {
-              std::cerr << "Prea multe argumente -> subscribe <TOPIC> <SF>\n";
-              break;
-            }
-
-            strcpy(subscription_packet.topic, topic);
-            strcpy(subscription_packet.command, "subscribe");
-            subscription_packet.sf = sf;
-            strcpy(subscription_packet.id, client_id);
-
-            sent_packet.len = sizeof(subscription_packet);
-            memcpy(sent_packet.message, &subscription_packet, sizeof(subscription_packet));
-
-            sent_packet.message_type = 1;
-          }
-          else if (strncmp(command, "exit", 4) == 0)
-          {
-            return;
-          }
-          else
-          {
-            std::cerr << "Clientul poate trimite doar mesaje de tipul 'exit', 'subscribe <TOPIC> <SF>', 'unsubscribe <TOPIC>'\n";
+            std::cerr << "Topic nu este definit\n";
             break;
           }
 
-        // Use send function to send the pachet to the server.
-        rc = send(poll_fds[1].fd, &sent_packet, sizeof(sent_packet), 0);
-        DIE(rc <= 0, "send");
-        break;
+          if (strlen(topic) > 50)
+          {
+            std::cerr << "Topicul este prea lung\n";
+            break;
+          }
+          char *sf_string = strtok(NULL, " ");
+
+          if (sf_string == NULL)
+          {
+            std::cerr << "SF nu este definit\n";
+            break;
+          }
+
+          int sf = atoi(sf_string);
+          if (sf != 0 && sf != 1)
+          {
+            std::cerr << "SF nu este 0 sau 1\n";
+            break;
+          }
+
+          if (strtok(NULL, " ") != NULL)
+          {
+            std::cerr << "Prea multe argumente -> subscribe <TOPIC> <SF>\n";
+            break;
+          }
+
+          strcpy(subscription_packet.topic, topic);
+          strcpy(subscription_packet.command, "subscribe");
+          strcpy(subscription_packet.id, client_id);
+          subscription_packet.sf = sf;
+
+          send_packet.header.len = sizeof(subscription_packet);
+          memcpy(send_packet.content, &subscription_packet, sizeof(subscription_packet));
+
+          send_packet.header.message_type = 1;
+
+          ret = send_all(poll_fds[1].fd, &send_packet, sizeof(send_packet));
+          DIE(ret < 0, "send");
+
+          std::cout << "Subscribed to topic.\n";
+          continue;
+        }
+
+        std::cerr << "Clientul poate trimite doar mesaje de tipul 'exit', 'subscribe <TOPIC> <SF>', 'unsubscribe <TOPIC>'\n";
+        continue;
       }
 
-      if (i == 1 && poll_fds[1].revents & POLLIN)
+      if (i == 1 && (poll_fds[1].revents & POLLIN))
       {
-        // Receive a message and show it's content
-        rc = recv(poll_fds[1].fd, &recv_packet, sizeof(recv_packet), 0);
-        if (rc <= 0)
+        struct packet recv_packet;
+        ret = recv_all(poll_fds[1].fd, &recv_packet, sizeof(recv_packet));
+        if (ret <= 0)
         {
           return;
         }
 
-        if (recv_packet.message_type == 2)
+        if (recv_packet.header.message_type == 0)
         {
-          std::cout << recv_packet.message << "\n";
-          break;
+          std::cout << recv_packet.content << "\n";
+          continue;
         }
-        /*
-              UNSUBSCRIBE RESPONSE
-        */
-        if (strncmp(recv_packet.message, "unsubscribe", 11) == 0)
-        {
-          std::cout << "Unsubscribed from topic.\n";
-          break;
-        }
-
-        /*
-              SUBSCRIBE RESPONSE
-        */
-        if (strncmp(recv_packet.message, "subscribe", 9) == 0)
-        {
-          std::cout << "Subscribed to topic.\n";
-          break;
-        }
+        std::cerr << "Serverul a trimis un mesaj neinteles: " << recv_packet.content << "\n";
+        continue;
       }
     }
   }
-}
-
-int main(int argc, char *argv[])
-{
-  setvbuf(stdout, NULL, _IONBF, BUFSIZ);
-
-  int sockfd = -1;
-
-  DIE(argc != 4, "Usage: ./subscriber <ID_Client> <IP_Server> <Port_Server>");
-
-  // Parsam ID-ul clientului
-  char *client_id = argv[1];
-  DIE(strlen(client_id) > 10 && strlen(client_id) == 0, "Client ID is invalid");
-
-  // Parsam port-ul ca un numar
-  uint16_t port;
-  int rc = sscanf(argv[3], "%hu", &port);
-  DIE(rc != 1, "Given port is invalid");
-
-  // Completăm in serv_addr adresa serverului, familia de adrese si portul
-  // pentru conectare
-
-  struct sockaddr_in serv_addr;
-  socklen_t socket_len = sizeof(serv_addr);
-
-  memset(&serv_addr, 0, socket_len);
-  serv_addr.sin_family = AF_INET;
-  serv_addr.sin_port = htons(port);
-  rc = inet_pton(AF_INET, argv[2], &serv_addr.sin_addr.s_addr);
-  DIE(rc <= 0, "IP Server is invalid (inet_pton)");
-
-  // Obtinem un socket TCP pentru conectarea la server
-  sockfd = socket(AF_INET, SOCK_STREAM, 0);
-  DIE(sockfd < 0, "socket");
-
-  // Ne conectăm la server
-  rc = connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr));
-  DIE(rc < 0, "connect");
-
-  struct pollfd poll_fds[MAX_CONNECTIONS];
-
-  poll_fds[0].fd = STDIN_FILENO;
-  poll_fds[0].events = POLLIN;
-
-  poll_fds[1].fd = sockfd;
-  poll_fds[1].events = POLLIN;
-
-  int num_clients = 2;
-
-  run_client(poll_fds, num_clients, client_id);
-
-  // Inchidem conexiunea si socketul creat
-  close(sockfd);
-
-  return 0;
 }

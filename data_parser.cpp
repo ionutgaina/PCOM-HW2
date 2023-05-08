@@ -4,10 +4,11 @@
 #include <iomanip>
 #include "common.h"
 
+
 class Data_Parser
 {
 public:
-  std::string parse_udp_message(udp_packet message, sockaddr_in udp_client)
+  std::string parse_udp_message(struct udp_packet message, sockaddr_in udp_client)
   {
     std::stringstream resultstream;
     std::string ip = inet_ntoa(udp_client.sin_addr);
