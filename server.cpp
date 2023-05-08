@@ -112,7 +112,7 @@ void run_server(struct pollfd poll_fds[], int num_sockets)
         {
 
           // eliberam memoria
-          for (int i = 2; i < num_sockets; i++)
+          for (int i = 3; i < num_sockets; i++)
           {
             auto it = std::find_if(id_to_client.begin(), id_to_client.end(), [&](const std::pair<std::string, Client_TCP *> &p)
                                    { return p.second->socket == poll_fds[i].fd; });
@@ -183,7 +183,7 @@ void run_server(struct pollfd poll_fds[], int num_sockets)
             TCP
           */
 
-          if ((poll_fds[2].revents & POLLIN) && (i == 2))
+          if ((i == 2) && (poll_fds[i].revents & POLLIN))
           {
             // a venit o cerere de conexiune pe socketul inactiv (cel cu listen),
             // pe care serverul o accepta
@@ -240,10 +240,11 @@ void run_server(struct pollfd poll_fds[], int num_sockets)
           {
             struct packet recv_packet;
             ret = recv_all(poll_fds[i].fd, &recv_packet, sizeof(recv_packet));
+            DIE(ret < 0, "recv_all");
             /*
                     INCHID CONEXIUNE (EXIT)
             */
-            if (ret <= 0)
+            if (ret == 0)
             {
               // conexiunea s-a inchis
               auto it = std::find_if(id_to_client.begin(), id_to_client.end(), [&](const std::pair<std::string, Client_TCP *> &p)
