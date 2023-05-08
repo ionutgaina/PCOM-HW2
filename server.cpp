@@ -105,7 +105,7 @@ void run_server(struct pollfd poll_fds[], int num_sockets)
       */
       if ((poll_fds[i].revents & POLLIN) && (poll_fds[i].fd == STDIN_FILENO))
       {
-        std::cout << "Eveniment pe STDIN\n";
+        // std::cout << "Eveniment pe STDIN\n";
         char buf[BUFSIZ];
         scanf("%s", buf);
 
@@ -139,7 +139,7 @@ void run_server(struct pollfd poll_fds[], int num_sockets)
         // Eveniment pe socketul UDP
         if ((poll_fds[i].revents & POLLIN) && (i == 1))
         {
-          std::cout << "Eveniment pe socketul UDP\n";
+          // std::cout << "Eveniment pe socketul UDP\n";
           struct udp_packet udp_packet;
           memset(&udp_packet, 0, sizeof(udp_packet));
 
@@ -208,6 +208,10 @@ void run_server(struct pollfd poll_fds[], int num_sockets)
                 accept(poll_fds[2].fd, (struct sockaddr *)&cli_addr, &cli_len);
             DIE(newsockfd < 0, "accept");
 
+            int enable = 1;
+            int rc = setsockopt(newsockfd, SOL_SOCKET, TCP_NODELAY, &enable, sizeof(int));
+            DIE(rc < 0, "setsockopt(TCP_NODELAY) failed");
+
             ret = recv_all(newsockfd, &recv_packet, sizeof(recv_packet));
             DIE(ret < 0, "recv_all");
 
@@ -264,7 +268,7 @@ void run_server(struct pollfd poll_fds[], int num_sockets)
           }
           else if ((poll_fds[i].revents & POLLIN) && (i > 2))
           {
-            std::cout << "Eveniment pe socketul TCP\n";
+            // std::cout << "Eveniment pe socketul TCP\n";
             struct packet recv_packet;
             ret = recv_all(poll_fds[i].fd, &recv_packet, sizeof(recv_packet));
             DIE(ret < 0, "recv_all");

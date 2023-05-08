@@ -45,7 +45,7 @@ int main(int argc, char *argv[])
   Sockets socket = Sockets(argv[2], port);
 
   // Deschidem un socket TCP
-  tcp_sock = socket.init_tcp_client(SOCK_STREAM, SO_REUSEADDR);
+  tcp_sock = socket.init_tcp_client(SOCK_STREAM, TCP_NODELAY);
 
   struct pollfd poll_fds[MAX_CONNECTIONS];
 
