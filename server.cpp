@@ -234,6 +234,7 @@ void run_server(struct pollfd poll_fds[], int num_sockets)
         // de citire
         poll_fds[num_sockets].fd = newsockfd;
         poll_fds[num_sockets].events = POLLIN;
+        poll_fds[num_sockets].revents = 0;
         ++num_sockets;
 
         std::cout << "New client " << id << " connected from " << inet_ntoa(cli_addr.sin_addr) << ":" << ntohs(cli_addr.sin_port) << ".\n";
@@ -266,8 +267,7 @@ void run_server(struct pollfd poll_fds[], int num_sockets)
             poll_fds[j] = poll_fds[j + 1];
           }
 
-          --num_sockets;
-          continue;
+          num_sockets--;
         }
         /*
                 SUBSCRIBE
