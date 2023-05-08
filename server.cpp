@@ -177,13 +177,13 @@ void run_server(struct pollfd poll_fds[], int num_sockets)
               {
                 // clientul are topicul, trimitem mesajul
                 struct packet send_packet;
-                memset(&send_packet, 0, sizeof(send_packet));
-                send_packet.header.len = result.size();
+                send_packet.header.len = result.size() + 1;
                 send_packet.header.message_type = 0;
+                send_packet.content = new char[send_packet.header.len];
 
                 strcpy(send_packet.content, result.c_str());
 
-                ret = send_all(socket, &send_packet, sizeof(send_packet));
+                ret = send_allpacket(socket, &send_packet);
                 DIE(ret < 0, "send");
               }
             }
@@ -212,7 +212,7 @@ void run_server(struct pollfd poll_fds[], int num_sockets)
             int rc = setsockopt(newsockfd, SOL_SOCKET, TCP_NODELAY, &enable, sizeof(int));
             DIE(rc < 0, "setsockopt(TCP_NODELAY) failed");
 
-            ret = recv_all(newsockfd, &recv_packet, sizeof(recv_packet));
+            ret = recv_allpacket(newsockfd, &recv_packet);
             DIE(ret < 0, "recv_all");
 
             // se verifica daca id-ul este deja folosit
@@ -239,13 +239,13 @@ void run_server(struct pollfd poll_fds[], int num_sockets)
               for (auto &message : messages)
               {
                 struct packet send_packet;
-                memset(&send_packet, 0, sizeof(send_packet));
-                send_packet.header.len = message.size();
+                send_packet.header.len = message.size() + 1;
                 send_packet.header.message_type = 0;
+                send_packet.content = new char[send_packet.header.len];
 
                 strcpy(send_packet.content, message.c_str());
 
-                ret = send_all(newsockfd, &send_packet, sizeof(send_packet));
+                ret = send_allpacket(newsockfd, &send_packet);
                 DIE(ret < 0, "send");
               }
             }
@@ -270,8 +270,8 @@ void run_server(struct pollfd poll_fds[], int num_sockets)
           {
             // std::cout << "Eveniment pe socketul TCP\n";
             struct packet recv_packet;
-            ret = recv_all(poll_fds[i].fd, &recv_packet, sizeof(recv_packet));
-            DIE(ret < 0, "recv_all");
+            ret = recv_allpacket(poll_fds[i].fd, &recv_packet);
+            DIE(ret < 0, "recv_allpacket");
             /*
                     INCHID CONEXIUNE (EXIT)
             */
@@ -304,7 +304,7 @@ void run_server(struct pollfd poll_fds[], int num_sockets)
             else if (recv_packet.header.message_type == 1 && recv_packet.header.len == sizeof(subscribe_packet))
             {
 
-              struct subscribe_packet *subscribe_packet = (struct subscribe_packet *)&recv_packet.content;
+              struct subscribe_packet *subscribe_packet = (struct subscribe_packet *)recv_packet.content;
 
               auto it = id_to_client.find(subscribe_packet->id);
 

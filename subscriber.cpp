@@ -75,11 +75,12 @@ void run_client(struct pollfd poll_fds[], int num_sockets, char *client_id)
 
   send_packet.header.len = strlen(client_id);
   send_packet.header.message_type = 0;
+  send_packet.content = new char[send_packet.header.len];
 
   strcpy(send_packet.content, client_id);
 
   // trimite id-ul spre server
-  ret = send(poll_fds[1].fd, &send_packet, sizeof(send_packet), 0);
+  ret = send_allpacket(poll_fds[1].fd, &send_packet);
   DIE(ret < 0, "send");
 
   while (1)
@@ -143,10 +144,11 @@ void run_client(struct pollfd poll_fds[], int num_sockets, char *client_id)
           unsubscription_packet.sf = -1;
 
           send_packet.header.len = sizeof(unsubscription_packet);
+          send_packet.content = new char[send_packet.header.len];
           memcpy(send_packet.content, &unsubscription_packet, sizeof(unsubscription_packet));
           send_packet.header.message_type = 1;
 
-          ret = send_all(poll_fds[1].fd, &send_packet, sizeof(send_packet));
+          ret = send_allpacket(poll_fds[1].fd, &send_packet);
           DIE(ret < 0, "send");
 
           std::cout << "Unsubscribed from topic.\n";
@@ -197,11 +199,12 @@ void run_client(struct pollfd poll_fds[], int num_sockets, char *client_id)
           subscription_packet.sf = sf;
 
           send_packet.header.len = sizeof(subscription_packet);
+          send_packet.content = new char[send_packet.header.len];
           memcpy(send_packet.content, &subscription_packet, sizeof(subscription_packet));
 
           send_packet.header.message_type = 1;
 
-          ret = send_all(poll_fds[1].fd, &send_packet, sizeof(send_packet));
+          ret = send_allpacket(poll_fds[1].fd, &send_packet);
           DIE(ret < 0, "send");
 
           std::cout << "Subscribed to topic.\n";
@@ -215,8 +218,9 @@ void run_client(struct pollfd poll_fds[], int num_sockets, char *client_id)
       if (i == 1 && (poll_fds[1].revents & POLLIN))
       {
         struct packet recv_packet;
-        ret = recv_all(poll_fds[1].fd, &recv_packet, sizeof(recv_packet));
-        if (ret <= 0)
+        ret = recv_allpacket(poll_fds[1].fd, &recv_packet);
+        DIE(ret < 0, "recv_allpacket");
+        if (ret == 0)
         {
           return;
         }

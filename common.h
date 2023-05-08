@@ -8,6 +8,9 @@
 int send_all(int sockfd, void *buff, size_t len);
 int recv_all(int sockfd, void *buff, size_t len);
 
+int recv_allpacket(int sockfd, struct packet *recv_packet);
+int send_allpacket(int sockfd, struct packet *sent_packet);
+
 /* Dimensiunea maxima a mesajului */
 #define PACKET_SIZE 1700
 #define MSG_MAXSIZE 1500
@@ -30,7 +33,7 @@ struct packet
   // 1 - a subscribe_packet struct (SUBSCRIBE_TYPE)
   // 2 - a subscription response  (SUBSCRIBE_RESPONSE)
   struct packet_header header;
-  char content[PACKET_SIZE];
+  char* content;
 };
 
 struct udp_packet
@@ -52,7 +55,7 @@ struct subscribe_packet
 {
   char command[12];
   char topic[TOPIC_MAXSIZE + 1];
-  char id[ID_MAXSIZE];
+  char id[ID_MAXSIZE + 1];
   uint8_t sf;
 };
 #endif
