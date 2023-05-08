@@ -63,7 +63,7 @@ void run_client(struct pollfd poll_fds[], int num_clients, char *client_id)
     for (int i = 0; i < num_clients; i++)
     {
 
-      if (poll_fds[0].revents & POLLIN)
+      if (i == 0 && poll_fds[0].revents & POLLIN)
       {
         memset(buf, 0, BUFSIZ);
         std::cin.getline(buf, sizeof(buf));
@@ -196,7 +196,7 @@ void run_client(struct pollfd poll_fds[], int num_clients, char *client_id)
         break;
       }
 
-      if (poll_fds[1].revents & POLLIN)
+      if (i == 1 && poll_fds[1].revents & POLLIN)
       {
         // Receive a message and show it's content
         rc = recv(poll_fds[1].fd, &recv_packet, sizeof(recv_packet), 0);

@@ -133,7 +133,7 @@ int main(int argc, char *argv[])
     for (i = 0; i < num_clients; i++)
     {
       // Eveniment pe stdin
-      if (poll_fds[0].revents & POLLIN)
+      if (poll_fds[i].revents & POLLIN)
       {
         char buf[BUFSIZ];
         std::cin.getline(buf, sizeof(buf));
@@ -164,7 +164,7 @@ int main(int argc, char *argv[])
       }
 
       // Eveniment pe socketul UDP
-      if (poll_fds[1].revents & POLLIN)
+      if (i == 1 && poll_fds[i].revents & POLLIN)
       {
         struct udp_packet udp_packet;
         memset(&udp_packet, 0, sizeof(udp_packet));
