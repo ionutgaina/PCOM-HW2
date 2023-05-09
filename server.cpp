@@ -28,7 +28,6 @@
 #include "./sockets.cpp"
 
 void run_server(struct pollfd poll_fds[], int num_sockets);
-std::string udp_response(int socketid);
 
 int main(int argc, char *argv[])
 {

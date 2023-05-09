@@ -54,7 +54,7 @@ public:
 
     int enable = 1;
     int rc = setsockopt(sockfd, SOL_SOCKET, optname, &enable, sizeof(int));
-    DIE(rc < 0, "setsockopt(TCP_NODELAY) failed");
+    DIE(rc < 0, "setsockopt(optname) failed");
 
     return sockfd;
   };

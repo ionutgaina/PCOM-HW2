@@ -21,7 +21,6 @@ int send_allpacket(int sockfd, struct packet *sent_packet);
 
 #define YOLO_TYPE 0
 #define SUBSCRIBE_TYPE 1
-#define SUBSCRIBE_RESPONSE_TYPE 2
 struct packet_header
 {
   uint8_t message_type;
@@ -31,7 +30,6 @@ struct packet
 {
   // 0 - a simple text (YOLO_TYPE)
   // 1 - a subscribe_packet struct (SUBSCRIBE_TYPE)
-  // 2 - a subscription response  (SUBSCRIBE_RESPONSE)
   struct packet_header header;
   char* content;
 };
